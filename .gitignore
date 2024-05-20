@@ -10,7 +10,11 @@ npm-debug.*
 *.orig.*
 web-build/
 
+# VS Code
+.vscode
+
 # macOS
 .DS_Store
 
 expo-env.d.ts
+%ProgramData%

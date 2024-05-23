@@ -33,7 +33,7 @@ export default function App() {
     <View style={styles.container}>
       <Text style={styles.bigHeader}>Current location:</Text>
       <Text style={styles.paragraph}>{text}</Text>
-      <Text style={styles.paragraph}>Accuracy: {location.coords.accuracy ? location.coords.accuracy : 'N/A'}</Text>
+      <Text style={styles.paragraph}>Accuracy: {location.coords ? location.coords.accuracy : 'N/A'}</Text>
     </View>
   );
 }

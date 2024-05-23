@@ -17,4 +17,4 @@ web-build/
 
 expo-env.d.ts
 %ProgramData%
-api_google_config.txt
+.env

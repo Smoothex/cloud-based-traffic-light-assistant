@@ -5,6 +5,7 @@ import MapView, { LatLng, Marker, PROVIDER_GOOGLE, Region } from "react-native-m
 import { GooglePlaceDetail, GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import MapViewDirections from "react-native-maps-directions";
 import Constants from "expo-constants";
+import MyLocation from 'react-native-vector-icons/MaterialIcons';
 
 const screen = Dimensions.get('window');
 const ASPECT_RATIO = screen.width / screen.height;
@@ -139,7 +140,7 @@ export default function App() {
           });
         }
       }}>
-        <Text style={styles.locationButtonText}>Locate</Text>
+        <MyLocation name="my-location" size={50} color="#fff" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -194,9 +195,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 30,
     right: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#900',
     padding: 10,
-    borderRadius: 30,
+    borderRadius: 50,
     shadowColor: 'black',
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.5,

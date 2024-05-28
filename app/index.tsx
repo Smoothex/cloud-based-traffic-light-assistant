@@ -1,8 +1,10 @@
-import { Text, View, StyleSheet, Dimensions, SafeAreaView } from "react-native";
+import { Text, View, StyleSheet, Dimensions, SafeAreaView, TouchableOpacity } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import * as Location from "expo-location";
-import MapView, { LatLng, Marker, PROVIDER_GOOGLE, Point, Region } from "react-native-maps";
+import MapView, { LatLng, Marker, PROVIDER_GOOGLE, Region } from "react-native-maps";
 import { GooglePlaceDetail, GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
+import MapViewDirections from "react-native-maps-directions";
+import Constants from "expo-constants";
 
 const screen = Dimensions.get('window');
 const ASPECT_RATIO = screen.width / screen.height;
@@ -14,39 +16,20 @@ const REGION_BERLIN = {
   longitude: 13.404954,
   latitudeDelta: LATITUDE_DELTA,
   longitudeDelta: LONGITUDE_DELTA
-}
+};
+
+const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
 export default function App() {
-  const [location, setLocation] = useState({} as Location.LocationObject);
-  const [destination, setDestination] = useState({latitude: REGION_BERLIN.latitude, longitude: REGION_BERLIN.longitude} as LatLng);
-  const [mapMoved, setMapMoved] = useState(false);
-  const mapRef = useRef<MapView>({} as MapView);
-
-   const onPressAddress = (details:GooglePlaceDetail) => {
-    setDestination({
-      latitude: details?.geometry?.location.lat,
-      longitude: details?.geometry?.location.lng,
-    });
-    if (details) {
-      moveToLocation(details?.geometry?.location.lat, details?.geometry?.location.lng);
-    }
-  };
-
-  async function moveToLocation(latitude:number, longitude:number) {
-    mapRef.current.animateToRegion(
-      {
-        latitude: latitude,
-        longitude: longitude,
-        latitudeDelta: LATITUDE_DELTA,
-        longitudeDelta: LONGITUDE_DELTA,
-      },
-      2000,
-    );
-  };
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [origin, setOrigin] = useState<LatLng | null>(null);
+  const [destination, setDestination] = useState<LatLng | null>(null);
+  const [distance, setDistance] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
     (async () => {
-
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         return;
@@ -54,39 +37,94 @@ export default function App() {
 
       let location = await Location.getCurrentPositionAsync({});
       setLocation(location);
+      setOrigin({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
     })();
   }, []);
 
-  const onRegionChange = (region: Region) => {
-    setMapMoved(true);
+  const moveToLocation = async (position: LatLng) => {
+    const camera = await mapRef.current?.getCamera();
+    if (camera) {
+      camera.center = position;
+      mapRef.current?.animateCamera(camera, { duration: 1000 });
+    }
+  };
+
+  const onPressAddress = (details: GooglePlaceDetail | null, type: "origin" | "destination") => {
+    if (details) {
+      const position = {
+        latitude: details.geometry.location.lat,
+        longitude: details.geometry.location.lng
+      };
+
+      if (type === "origin") {
+        setOrigin(position);
+      } else {
+        setDestination(position);
+      }
+
+      moveToLocation(position);
+    }
+  };
+
+  const traceRoute = () => {
+    if (origin && destination) {
+      mapRef.current?.fitToCoordinates([origin, destination], { edgePadding: { top: 70, right: 70, bottom: 70, left: 70 } });
+    }
+  };
+
+  const traceRouteOnReady = (args: any) => {
+    if (args) {
+      setDistance(args.distance);
+      setDuration(args.duration);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.searchContainer}>
-        <GooglePlacesAutocomplete
-          placeholder="Search your destination"
-          fetchDetails={true}
-          onPress={(data, details = null) => {
-            // 'details' is provided when fetchDetails = true
-            onPressAddress(details);
-          }}
-          query={{
-            key: process.env.EXPO_PUBLIC_GOOGLE_API_KEY,
-            language: 'en',
-          }}
-        />
-      </View>
       <MapView
         style={styles.map}
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
         initialRegion={REGION_BERLIN}
-        showsMyLocationButton={mapMoved}
         showsUserLocation
-        onRegionChangeComplete={onRegionChange}>
-        {(destination.latitude && destination.longitude) && <Marker coordinate={destination} />}
+      >
+        {origin && <Marker coordinate={origin} />}
+        {destination && <Marker coordinate={destination} />}
+        {origin && destination && (
+          <MapViewDirections
+            origin={origin}
+            destination={destination}
+            apikey={GOOGLE_API_KEY}
+            mode="WALKING"
+            strokeColor="#6644ff"
+            strokeWidth={4}
+            onReady={traceRouteOnReady}
+          />
+        )}
       </MapView>
+      <View style={styles.searchContainer}>
+        <GooglePlacesAutocomplete
+          placeholder="Search for your destination"
+          fetchDetails={true}
+          onPress={(data, details = null) => onPressAddress(details, "destination")}
+          query={{
+            key: GOOGLE_API_KEY,
+            language: 'en',
+          }}
+        />
+        <TouchableOpacity style={styles.button} onPress={traceRoute}>
+          <Text style={styles.buttonText}>Trace Route</Text>
+        </TouchableOpacity>
+        {distance && duration ? (
+          <View>
+            <Text>Distance: {distance.toFixed(2)} km</Text>
+            <Text>Duration: {Math.ceil(duration)} min</Text>
+          </View>
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -97,11 +135,28 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
   },
   searchContainer: {
+    position: "absolute",
+    width: "90%",
+    backgroundColor: "white",
+    shadowColor: "black",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 4,
+    padding: 8,
+    borderRadius: 8,
+    top: Constants.statusBarHeight,
     zIndex: 1,
-    flex: 0.4,
-    marginRight: 60,
+  },
+  button: {
+    backgroundColor: "#bbb",
+    paddingVertical: 12,
+    marginTop: 16,
+    borderRadius: 4,
+  },
+  buttonText: {
+    textAlign: "center",
   },
 });

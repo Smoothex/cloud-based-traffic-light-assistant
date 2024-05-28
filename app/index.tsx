@@ -90,6 +90,7 @@ export default function App() {
         provider={PROVIDER_GOOGLE}
         initialRegion={REGION_BERLIN}
         showsUserLocation
+        showsMyLocationButton={false}
       >
         {origin && <Marker coordinate={origin} />}
         {destination && <Marker coordinate={destination} />}
@@ -114,6 +115,11 @@ export default function App() {
             key: GOOGLE_API_KEY,
             language: 'en',
           }}
+          styles={{
+            textInputContainer: styles.textInputContainer,
+            textInput: styles.textInput,
+            predefinedPlacesDescription: styles.predefinedPlacesDescription,
+          }}
         />
         <TouchableOpacity style={styles.button} onPress={traceRoute}>
           <Text style={styles.buttonText}>Trace Route</Text>
@@ -125,6 +131,16 @@ export default function App() {
           </View>
         ) : null}
       </View>
+      <TouchableOpacity style={styles.locationButton} onPress={() => {
+        if (location) {
+          moveToLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+        }
+      }}>
+        <Text style={styles.locationButtonText}>Locate</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -147,8 +163,23 @@ const styles = StyleSheet.create({
     elevation: 4,
     padding: 8,
     borderRadius: 8,
-    top: Constants.statusBarHeight,
+    top: Constants.statusBarHeight - 10,
+    alignSelf: 'center',
     zIndex: 1,
+  },
+  textInputContainer: {
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
+  },
+  textInput: {
+    borderRadius: 5,
+    padding: 5,
+    height: 38,
+    backgroundColor: '#f9f9f9',
+    fontSize: 16,
+  },
+  predefinedPlacesDescription: {
+    color: '#1faadb',
   },
   button: {
     backgroundColor: "#bbb",
@@ -158,5 +189,22 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     textAlign: "center",
+  },
+  locationButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 30,
+    shadowColor: 'black',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  locationButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
   },
 });

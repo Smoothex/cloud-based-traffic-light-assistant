@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.0",
+    "@react-native-vector-icons/ionicons": "^7.3.1-alpha.9",
     "@react-navigation/native": "^6.0.2",
     "expo": "^51.0.8",
     "expo-constants": "~16.0.1",

@@ -2,10 +2,11 @@ import { Text, View, StyleSheet, Dimensions, SafeAreaView, TouchableOpacity } fr
 import { useState, useEffect, useRef } from "react";
 import * as Location from "expo-location";
 import MapView, { LatLng, Marker, PROVIDER_GOOGLE, Region } from "react-native-maps";
-import { GooglePlaceDetail, GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
+import { GooglePlaceDetail, GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from "react-native-google-places-autocomplete";
 import MapViewDirections from "react-native-maps-directions";
 import Constants from "expo-constants";
 import MyLocation from 'react-native-vector-icons/MaterialIcons';
+import { convertMinutesToHours } from "@/utilClasses/timeConverter";
 
 const screen = Dimensions.get('window');
 const ASPECT_RATIO = screen.width / screen.height;
@@ -28,6 +29,7 @@ export default function App() {
   const [distance, setDistance] = useState(0);
   const [duration, setDuration] = useState(0);
   const mapRef = useRef<MapView>(null);
+  const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
 
   useEffect(() => {
     (async () => {
@@ -79,7 +81,7 @@ export default function App() {
   const traceRouteOnReady = (args: any) => {
     if (args) {
       setDistance(args.distance);
-      setDuration(args.duration);
+      setDuration(Math.round(args.duration));
     }
   };
 
@@ -91,7 +93,6 @@ export default function App() {
         provider={PROVIDER_GOOGLE}
         initialRegion={REGION_BERLIN}
         showsUserLocation
-        showsMyLocationButton={false}
       >
         {origin && <Marker coordinate={origin} />}
         {destination && <Marker coordinate={destination} />}
@@ -109,6 +110,7 @@ export default function App() {
       </MapView>
       <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
+          ref={autoCompleteRef}
           placeholder="Search for your destination"
           fetchDetails={true}
           onPress={(data, details = null) => onPressAddress(details, "destination")}
@@ -121,6 +123,11 @@ export default function App() {
             textInput: styles.textInput,
             predefinedPlacesDescription: styles.predefinedPlacesDescription,
           }}
+          textInputProps={{
+            onFocus: () => {
+              autoCompleteRef.current.clear();
+            }
+          }}
         />
         <TouchableOpacity style={styles.button} onPress={traceRoute}>
           <Text style={styles.buttonText}>Trace Route</Text>
@@ -128,7 +135,7 @@ export default function App() {
         {distance && duration ? (
           <View>
             <Text>Distance: {distance.toFixed(2)} km</Text>
-            <Text>Duration: {Math.ceil(duration)} min</Text>
+            <Text>Duration: {convertMinutesToHours(duration)}</Text>
           </View>
         ) : null}
       </View>

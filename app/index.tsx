@@ -1,12 +1,13 @@
-import { Text, View, StyleSheet, Dimensions, SafeAreaView, TouchableOpacity } from "react-native";
+import { Text, View, StyleSheet, Dimensions, SafeAreaView, TouchableOpacity, Button } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import * as Location from "expo-location";
-import MapView, { LatLng, Marker, PROVIDER_GOOGLE, Region } from "react-native-maps";
+import MapView, { LatLng, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { GooglePlaceDetail, GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from "react-native-google-places-autocomplete";
 import MapViewDirections from "react-native-maps-directions";
 import Constants from "expo-constants";
 import MyLocation from 'react-native-vector-icons/MaterialIcons';
 import { convertMinutesToHours } from "@/utilClasses/timeConverter";
+import VoiceInput from "@/components/VoiceInput";
 
 const screen = Dimensions.get('window');
 const ASPECT_RATIO = screen.width / screen.height;
@@ -28,6 +29,7 @@ export default function App() {
   const [destination, setDestination] = useState<LatLng | null>(null);
   const [distance, setDistance] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [speakingResult, setSpeakingResult] = useState('');
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
 
@@ -126,7 +128,12 @@ export default function App() {
           textInputProps={{
             onFocus: () => {
               autoCompleteRef.current.clear();
-            }
+            },
+            onEndEditing:() => {
+              traceRoute(); //TODO add route tracing
+            },
+            value: speakingResult,
+            maxLength: 60,
           }}
         />
         <TouchableOpacity style={styles.button} onPress={traceRoute}>
@@ -149,6 +156,7 @@ export default function App() {
       }}>
         <MyLocation name="my-location" size={50} color="#fff" />
       </TouchableOpacity>
+      <VoiceInput setResults={setSpeakingResult}></VoiceInput>
     </SafeAreaView>
   );
 }

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  StyleSheet,
   Image,
   TouchableOpacity,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 
 import Voice, {
@@ -11,12 +12,13 @@ import Voice, {
 } from '@wdragon/react-native-voice';
 
 interface modalProps {
-  setResults: React.Dispatch<React.SetStateAction<string>>;
+  setResults: (result: string) => void,
+  styles: StyleProp<ViewStyle>;
 }
 
 const GERMAN_LOCALE='de-DE';
 
-export default function VoiceInput({ setResults } : modalProps) {
+export default function VoiceInput({ setResults, styles } : modalProps) {
   const [error, setError] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -75,16 +77,8 @@ export default function VoiceInput({ setResults } : modalProps) {
   };
 
   return (
-    <TouchableOpacity onPress={isSpeaking ? _stopRecognizing : _startRecognizing}>
-      <Image style={styles.button} source={isSpeaking ? require('../assets/images/stopRecordButton.png') : require('../assets/images/startRecordButton.png')}/>
+    <TouchableOpacity style={styles} onPress={isSpeaking ? _stopRecognizing : _startRecognizing}>
+      <Image style={{width: 75, height: 75}} source={isSpeaking ? require('../assets/images/stopRecordButton.png') : require('../assets/images/startRecordButton.png')}/>
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    width: 50,
-    height: 50,
-    position: 'relative',
-  },
-});

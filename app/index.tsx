@@ -1,4 +1,4 @@
-import { Text, View, StyleSheet, Dimensions, SafeAreaView, TouchableOpacity, Button } from "react-native";
+import { Text, View, StyleSheet, Dimensions, SafeAreaView, TouchableOpacity } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import * as Location from "expo-location";
 import MapView, { LatLng, Marker, PROVIDER_GOOGLE } from "react-native-maps";
@@ -29,7 +29,6 @@ export default function App() {
   const [destination, setDestination] = useState<LatLng | null>(null);
   const [distance, setDistance] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [speakingResult, setSpeakingResult] = useState('');
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
 
@@ -87,6 +86,11 @@ export default function App() {
     }
   };
 
+  function updateTextInputOnEndOfSpeaking(result: string) {
+    autoCompleteRef.current.focus();
+    autoCompleteRef.current.setAddressText(result);
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <MapView
@@ -115,10 +119,14 @@ export default function App() {
           ref={autoCompleteRef}
           placeholder="Search for your destination"
           fetchDetails={true}
+          enableHighAccuracyLocation
+          keepResultsAfterBlur={false}
+          minLength={3}
           onPress={(data, details = null) => onPressAddress(details, "destination")}
           query={{
             key: GOOGLE_API_KEY,
-            language: 'en',
+            language: 'de',
+            components: 'country:de',
           }}
           styles={{
             textInputContainer: styles.textInputContainer,
@@ -127,12 +135,11 @@ export default function App() {
           }}
           textInputProps={{
             onFocus: () => {
-              autoCompleteRef.current.clear();
+              console.log('elem focused');
             },
-            onEndEditing:() => {
-              traceRoute(); //TODO add route tracing
+            onChangeText: () => {
+              console.log('text changed');
             },
-            value: speakingResult,
             maxLength: 60,
           }}
         />
@@ -156,7 +163,7 @@ export default function App() {
       }}>
         <MyLocation name="my-location" size={50} color="#fff" />
       </TouchableOpacity>
-      <VoiceInput setResults={setSpeakingResult}></VoiceInput>
+      <VoiceInput styles={styles.speakingButton} setResults={updateTextInputOnEndOfSpeaking}></VoiceInput>
     </SafeAreaView>
   );
 }
@@ -222,5 +229,10 @@ const styles = StyleSheet.create({
   locationButtonText: {
     color: '#000',
     fontWeight: 'bold',
+  },
+  speakingButton: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
   },
 });

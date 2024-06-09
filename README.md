@@ -6,6 +6,17 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 - npm version: ~10.8.1
 - Node.js version: ~21.7.3
 
+# Changes in libraries
+1. react-native-google-places-autocomplete
+   - Go to node_modules and find the library
+   - In GooglePlacesAutocomplete.js go to line 866 and add the following code:
+   ```
+   if (stateText?.length > 0) {
+      _handleChangeText(stateText);
+   }
+   ```
+   - This allows for results to be queried when text is input by voice
+
 ## How to build the app using EAS CLI
 
 1. In the terminal install eas-cli using `npm install -g eas-cli`

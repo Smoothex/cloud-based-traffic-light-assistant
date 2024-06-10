@@ -1,12 +1,13 @@
 import { Text, View, StyleSheet, Dimensions, SafeAreaView, TouchableOpacity } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import * as Location from "expo-location";
-import MapView, { LatLng, Marker, PROVIDER_GOOGLE, Region } from "react-native-maps";
+import MapView, { LatLng, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { GooglePlaceDetail, GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from "react-native-google-places-autocomplete";
 import MapViewDirections from "react-native-maps-directions";
 import Constants from "expo-constants";
 import MyLocation from 'react-native-vector-icons/MaterialIcons';
 import { convertMinutesToHours } from "@/utilClasses/timeConverter";
+import VoiceInput from "@/components/VoiceInput";
 
 const screen = Dimensions.get('window');
 const ASPECT_RATIO = screen.width / screen.height;
@@ -85,6 +86,11 @@ export default function App() {
     }
   };
 
+  function updateTextInputOnEndOfSpeaking(result: string) {
+    autoCompleteRef.current.focus();
+    autoCompleteRef.current.setAddressText(result);
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <MapView
@@ -113,10 +119,14 @@ export default function App() {
           ref={autoCompleteRef}
           placeholder="Search for your destination"
           fetchDetails={true}
+          enableHighAccuracyLocation
+          keepResultsAfterBlur={false}
+          minLength={3}
           onPress={(data, details = null) => onPressAddress(details, "destination")}
           query={{
             key: GOOGLE_API_KEY,
-            language: 'en',
+            language: 'de',
+            components: 'country:de',
           }}
           styles={{
             textInputContainer: styles.textInputContainer,
@@ -125,8 +135,12 @@ export default function App() {
           }}
           textInputProps={{
             onFocus: () => {
-              autoCompleteRef.current.clear();
-            }
+              console.log('elem focused');
+            },
+            onChangeText: () => {
+              console.log('text changed');
+            },
+            maxLength: 60,
           }}
         />
         <TouchableOpacity style={styles.button} onPress={traceRoute}>
@@ -149,6 +163,7 @@ export default function App() {
       }}>
         <MyLocation name="my-location" size={50} color="#fff" />
       </TouchableOpacity>
+      <VoiceInput styles={styles.speakingButton} setResults={updateTextInputOnEndOfSpeaking}></VoiceInput>
     </SafeAreaView>
   );
 }
@@ -214,5 +229,10 @@ const styles = StyleSheet.create({
   locationButtonText: {
     color: '#000',
     fontWeight: 'bold',
+  },
+  speakingButton: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
   },
 });

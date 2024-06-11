@@ -5,6 +5,8 @@ on: workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_GOOGLE_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_API_KEY }}
     steps:
       - name: Setup repo
         uses: actions/checkout@v4

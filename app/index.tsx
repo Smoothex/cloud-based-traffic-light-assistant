@@ -31,6 +31,7 @@ export default function App() {
   const [duration, setDuration] = useState(0);
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
+  const [isNavigationActive, setIsNavigationActive] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -48,14 +49,30 @@ export default function App() {
     })();
   }, []);
 
+  /**
+   * Moves the camera to the specified location on the map.
+   *
+   * @param {LatLng} position - The position to move the camera to.
+   * @return {Promise<void>} A promise that resolves when the camera animation is complete.
+   */
   const moveToLocation = async (position: LatLng) => {
     const camera = await mapRef.current?.getCamera();
     if (camera) {
-      camera.center = position;
-      mapRef.current?.animateCamera(camera, { duration: 1000 });
+      const newRegion = {
+        ...position,
+        latitudeDelta: 0.0018, // adjust zoom level here (smaller value = more zoom)
+        longitudeDelta: 0.0018,
+      };
+      mapRef.current?.animateToRegion(newRegion, 2000);
     }
   };
 
+  /**
+   * Updates the origin or destination location based on the given details and type.
+   *
+   * @param {GooglePlaceDetail | null} details - The details of the place selected.
+   * @param {"origin" | "destination"} type - The type of location being updated.
+   */
   const onPressAddress = (details: GooglePlaceDetail | null, type: "origin" | "destination") => {
     if (details) {
       const position = {
@@ -86,6 +103,42 @@ export default function App() {
     }
   };
 
+/**
+ * Starts navigation from the origin to the destination.
+ * Subscribes to current user location and follows it when the user moves.
+ */
+  const startNavigation = async () => {
+    if (!origin || !destination) {
+      return;
+    }
+    moveToLocation(origin)
+    setIsNavigationActive(true);
+    let subscription: { remove: any; };
+    try {
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          distanceInterval: 3, // Update location every 3 meters
+          
+        },
+        (location) => {
+          const userLocation = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
+          moveToLocation(userLocation);
+        }
+      );
+    } catch (error) {
+      console.error("Error starting navigation:", error);
+    }
+
+    return () => {
+      setIsNavigationActive(false);
+      subscription?.remove();
+    };
+  };
+
   function updateTextInputOnEndOfSpeaking(result: string) {
     autoCompleteRef.current.focus();
     autoCompleteRef.current.setAddressText(result);
@@ -99,6 +152,7 @@ export default function App() {
         provider={PROVIDER_GOOGLE}
         initialRegion={REGION_BERLIN}
         showsUserLocation
+        showsMyLocationButton={false}
       >
         {origin && <Marker coordinate={origin} />}
         {destination && <Marker coordinate={destination} />}
@@ -151,6 +205,11 @@ export default function App() {
             <Text>Distance: {distance.toFixed(2)} km</Text>
             <Text>Duration: {convertMinutesToHours(duration)}</Text>
           </View>
+        ) : null}
+      {origin && destination ? (
+          <TouchableOpacity style={styles.navigationButton} onPress={startNavigation} disabled={!origin || !destination}>
+            <Text style={styles.navigationButtonText}>Start Navigation</Text>
+          </TouchableOpacity>
         ) : null}
       </View>
       <TouchableOpacity style={styles.locationButton} onPress={() => {
@@ -207,7 +266,7 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: "#bbb",
     paddingVertical: 12,
-    marginTop: 16,
+    marginTop: 10,
     borderRadius: 4,
   },
   buttonText: {
@@ -234,5 +293,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 30,
     left: 20,
+  },
+  navigationButton: {
+    backgroundColor: "#0099ff", // Adjust background color as desired
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 10,
+    borderRadius: 4,
+  },
+  navigationButtonText: {
+    color: "#fff", // Adjust text color as desired
+    textAlign: "center",
   },
 });

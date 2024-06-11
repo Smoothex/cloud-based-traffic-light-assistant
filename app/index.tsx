@@ -152,6 +152,7 @@ export default function App() {
         provider={PROVIDER_GOOGLE}
         initialRegion={REGION_BERLIN}
         showsUserLocation
+        showsMyLocationButton={false}
       >
         {origin && <Marker coordinate={origin} />}
         {destination && <Marker coordinate={destination} />}

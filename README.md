@@ -47,3 +47,10 @@ with `npx expo start`
    ```
     npx expo start
    ```
+
+## Build
+Using GitHub Actions we have created a workflow for building an APK app for Android. It uses [Expo Application Services (EAS)](https://expo.dev/eas) and specifically [EAS Build](https://docs.expo.dev/build/introduction/), which builds the app binary for the project.
+
+The build command starts the build process on the EAS Build servers by default. Since [EAS is a paid service](https://expo.dev/pricing#pay-as-you-grow), the free tier is restricted to 30 builds per month. In order to avoid this limited number of builds, the `eas build` command in the pipeline uses the `--local` flag. This allows for running the same build process locally on the machine instead of in the Expo's managed environment. Although [building locally has some limitations](https://docs.expo.dev/build-reference/local-builds/#limitations), the local builds do not count to the said free 30 builds per month.
+
+Unfortunately, Expo secrets can only be accessed by EAS cloud builds, and the local builds inside the GitHub runners can't access the Google Geolocation API key we need for the maps. Therefore, we set the `EXPO_PUBLIC_GOOGLE_API_KEY` variable as a repository secret and include it in the workflow.

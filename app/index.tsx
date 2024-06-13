@@ -32,7 +32,7 @@ export default function App() {
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
   const [isNavigationActive, setIsNavigationActive] = useState(false);
-
+  const[route, setRoute] = useState<any | null>(null);
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -164,6 +164,8 @@ export default function App() {
     if (args) {
       setDistance(args.distance);
       setDuration(Math.round(args.duration));
+      setRoute(args.legs[0].steps)
+      console.log(args)
     }
   };
 

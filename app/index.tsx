@@ -1,16 +1,17 @@
-import { Text, View, StyleSheet, SafeAreaView, TouchableOpacity } from "react-native";
+import { Text, View, StyleSheet, SafeAreaView } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import * as Location from "expo-location";
 import MapView, { LatLng, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { GooglePlaceDetail, GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from "react-native-google-places-autocomplete";
 import MapViewDirections from "react-native-maps-directions";
 import Constants from "expo-constants";
-import MyLocation from 'react-native-vector-icons/MaterialIcons';
 import VoiceInput from "@/components/VoiceInput";
 import NavigationButton from "@/components/NavigationButton";
 import { LocaleCodes } from "@/constants/LocaleCodes";
 import { convertMinutesToHours } from "@/utilClasses/timeConverter";
 import { calculateInitialRegion } from "@/utilClasses/calculationsUtil";
+import TraceRouteButton from "@/components/TraceRouteButton";
+import MyLocationButton from "@/components/MyLocationButton";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
@@ -65,14 +66,18 @@ export default function App() {
    * @param {GooglePlaceDetail | null} details - The details of the place selected.
    * @param {"origin" | "destination"} type - The type of location being updated.
    */
-  const onPressAddress = (details: GooglePlaceDetail | null, type: "origin" | "destination") => {
+  const onPressAddress = (details: GooglePlaceDetail | null, type: 'origin' | 'destination') => {
+    if (isNavigationActive) {
+      stopNavigation();
+    }
+  
     if (details) {
       const position = {
         latitude: details.geometry.location.lat,
         longitude: details.geometry.location.lng
       };
 
-      if (type === "origin") {
+      if (type === 'origin') {
         setOrigin(position);
       } else {
         setDestination(position);
@@ -124,17 +129,18 @@ export default function App() {
         });
       console.log('Tracking started');
     } catch (error) {
-      console.error("Error starting navigation:", error);
+      console.error('Error on starting navigation: ', error);
     }
   };
 
   async function stopNavigation() {
     setIsNavigationActive(false);
-    console.log('Tracking stopped');
     locationWatcher?.remove();
+    console.log('Tracking stopped');
   }
 
   function updateTextInputOnEndOfSpeaking(result: string) {
+    autoCompleteRef.current.clear();
     autoCompleteRef.current.blur();
     autoCompleteRef.current.focus();
     autoCompleteRef.current.setAddressText(result);
@@ -157,8 +163,8 @@ export default function App() {
             origin={origin}
             destination={destination}
             apikey={GOOGLE_API_KEY}
-            mode="WALKING"
-            strokeColor="#6644ff"
+            mode='WALKING'
+            strokeColor='#6644ff'
             strokeWidth={4}
             onReady={traceRouteOnReady}
           />
@@ -167,12 +173,12 @@ export default function App() {
       <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
           ref={autoCompleteRef}
-          placeholder="Search for your destination"
+          placeholder='Search for your destination'
           fetchDetails={true}
           enableHighAccuracyLocation
           keepResultsAfterBlur={false}
           minLength={3}
-          onPress={(data, details = null) => onPressAddress(details, "destination")}
+          onPress={(data, details = null) => onPressAddress(details, 'destination')}
           query={{
             key: GOOGLE_API_KEY,
             language: LocaleCodes.germanLanguageCode,
@@ -190,9 +196,7 @@ export default function App() {
             maxLength: 60,
           }}
         />
-        <TouchableOpacity style={styles.button} onPress={traceRoute}>
-          <Text style={styles.buttonText}>Trace Route</Text>
-        </TouchableOpacity>
+        <TraceRouteButton traceRoute={traceRoute} />
         {distance && duration ? (
           <View>
             <Text>Distance: {distance.toFixed(2)} km</Text>
@@ -204,16 +208,7 @@ export default function App() {
             destination={destination} isNavigationActive={isNavigationActive} />
         ) : null}
       </View>
-      <TouchableOpacity style={styles.locationButton} onPress={() => {
-        if (location) {
-          moveToLocation({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-          });
-        }
-      }}>
-        <MyLocation name="my-location" size={50} color="#fff" />
-      </TouchableOpacity>
+      <MyLocationButton moveToLocation={moveToLocation} location={location}/>
       <VoiceInput setResults={updateTextInputOnEndOfSpeaking} />
     </SafeAreaView>
   );
@@ -227,10 +222,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   searchContainer: {
-    position: "absolute",
-    width: "90%",
-    backgroundColor: "white",
-    shadowColor: "black",
+    position: 'absolute',
+    width: '90%',
+    backgroundColor: 'white',
+    shadowColor: 'black',
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.5,
     shadowRadius: 4,
@@ -254,31 +249,5 @@ const styles = StyleSheet.create({
   },
   predefinedPlacesDescription: {
     color: '#1faadb',
-  },
-  button: {
-    backgroundColor: "#bbb",
-    paddingVertical: 12,
-    marginTop: 10,
-    borderRadius: 4,
-  },
-  buttonText: {
-    textAlign: "center",
-  },
-  locationButton: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-    backgroundColor: '#900',
-    padding: 10,
-    borderRadius: 50,
-    shadowColor: 'black',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  locationButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
   },
 });

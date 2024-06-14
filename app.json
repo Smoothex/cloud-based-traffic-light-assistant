@@ -2,6 +2,7 @@
   "expo": {
     "name": "cloud-based-traffic-light-assistant",
     "slug": "cloud-based-traffic-light-assistant",
+    "owner": "dcaiti-friends",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/gps.png",
@@ -63,7 +64,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "2a232908-575f-4732-a7d8-2abe0dcbb27d"
+        "projectId": "a18bcd02-fe26-4894-a922-f00573e5bfff"
       }
     }
   }

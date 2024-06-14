@@ -1,25 +1,13 @@
 import { useEffect, useState } from 'react';
-import {
-  Image,
-  TouchableOpacity,
-  StyleProp,
-  ViewStyle,
-} from 'react-native';
+import { Image, TouchableOpacity, StyleSheet } from 'react-native';
+import Voice, { SpeechResultsEvent, SpeechErrorEvent } from '@wdragon/react-native-voice';
+import { LocaleCodes } from "@/constants/LocaleCodes";
 
-import Voice, {
-  SpeechResultsEvent,
-  SpeechErrorEvent,
-} from '@wdragon/react-native-voice';
-
-interface modalProps {
-  setResults: (result: string) => void,
-  styles: StyleProp<ViewStyle>;
+type VoiceInputProps = {
+  setResults: (result: string) => void;
 }
 
-const GERMAN_LOCALE='de-DE';
-
-export default function VoiceInput({ setResults, styles } : modalProps) {
-  const [error, setError] = useState('');
+export default function VoiceInput({ setResults } : VoiceInputProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   useEffect(() => {
@@ -44,8 +32,7 @@ export default function VoiceInput({ setResults, styles } : modalProps) {
   };
 
   const onSpeechError = (e: SpeechErrorEvent) => {
-    console.log('onSpeechError: ', e);
-    setError(JSON.stringify(e.error));
+    console.log('An error occurred: ', JSON.stringify(e.error));
   };
 
   const onSpeechResults = (e: SpeechResultsEvent) => {
@@ -54,9 +41,8 @@ export default function VoiceInput({ setResults, styles } : modalProps) {
   };
 
   const _startRecognizing = async () => {
-    _clearState();
     try {
-      await Voice.start(GERMAN_LOCALE);
+      await Voice.start(LocaleCodes.germanLocaleVoiceInputCode);
       console.log('called start');
     } catch (e) {
       console.error(e);
@@ -72,13 +58,21 @@ export default function VoiceInput({ setResults, styles } : modalProps) {
     }
   };
 
-  const _clearState = () => {
-    setError('');
-  };
-
   return (
-    <TouchableOpacity style={styles} onPress={isSpeaking ? _stopRecognizing : _startRecognizing}>
-      <Image style={{width: 75, height: 75}} source={isSpeaking ? require('../assets/images/stopRecordButton.png') : require('../assets/images/startRecordButton.png')}/>
+    <TouchableOpacity style={styles.speakingButton} onPress={isSpeaking ? _stopRecognizing : _startRecognizing}>
+      <Image style={styles.buttonImage} source={isSpeaking ? require('../assets/images/stopRecordButton.png') : require('../assets/images/startRecordButton.png')}/>
     </TouchableOpacity>
   );
 }
+
+const styles = StyleSheet.create({
+  speakingButton: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+  },
+  buttonImage: {
+    width: 75, 
+    height: 75,
+  },
+});

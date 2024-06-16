@@ -143,6 +143,10 @@ export default function App() {
     autoCompleteRef.current.clear();
     autoCompleteRef.current.blur();
     autoCompleteRef.current.focus();
+    let splitResult: string[] = result.split(' ');
+    if (!splitResult.includes('Berlin')) {
+      result = result.concat(', Berlin');
+    }
     autoCompleteRef.current.setAddressText(result);
   }
 

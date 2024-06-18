@@ -148,6 +148,15 @@ export default function App() {
       result = result.concat(', Berlin');
     }
     autoCompleteRef.current.setAddressText(result);
+    autoCompleteRef.current.setSelection
+  }
+
+  function playOnError(err: Error) {
+    console.log("Please try again! Error: ", err); //TODO implement text to speech here
+  }
+
+  function playOnNotFound() {
+    console.log("No results found!"); //TODO implement text to speech here
   }
 
   return (
@@ -183,6 +192,13 @@ export default function App() {
           keepResultsAfterBlur={false}
           minLength={3}
           onPress={(data, details = null) => onPressAddress(details, 'destination')}
+          onFail={err => playOnError(err)}
+          onNotFound={playOnNotFound}
+          listEmptyComponent={(
+            <View style={{flex: 1}}>
+              <Text>No results were found</Text>
+            </View>
+          )}
           query={{
             key: GOOGLE_API_KEY,
             language: LocaleCodes.germanLanguageCode,
@@ -194,10 +210,11 @@ export default function App() {
             predefinedPlacesDescription: styles.predefinedPlacesDescription,
           }}
           textInputProps={{
+            blurOnSubmit: true,
             onFocus: () => {
               console.log('text input is focused');
             },
-            maxLength: 60,
+            maxLength: 80,
           }}
         />
         <TraceRouteButton traceRoute={traceRoute} />

@@ -34,19 +34,18 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 ## How to run the app using Expo Go
 
-1. Install Expo Go on your physical device
+1. Install Expo Go on your physical device from [Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent&pcampaignid=web_share) for Android or [App Store](https://apps.apple.com/us/app/expo-go/id982107779) for iOS.
 
-2. Install dependencies
-   ```
-   npm install
-   ```
+2. Install dependencies by running `npm install` in the terminal.
 
-3. Create a .env folder where to place some non-public data like the Google API key in our case
+3. Set the `EXPO_PUBLIC_GOOGLE_API_KEY` environment in a .env file. This project uses Google APIs, so you need to configure an API Key in your [Google Cloud](https://console.cloud.google.com) account.
 
-4. Start the app and follow the instructions from the terminal
-   ```
-    npx expo start
-   ```
+4. Run `npm start` to start the app.
+
+5. On your device, open Expo Go and scan the QR code to connect to the development server. When the project starts loading, you see this in the terminal, see the gif below.
+   
+   ![demo-ezgif com-video-to-gif-converter](https://github.com/Smoothex/cloud-based-traffic-light-assistant/assets/79105432/3b2bed45-0a5d-4f7a-a3a0-624c75e14d8e)
+
 
 ## Build
 Using GitHub Actions we have created a workflow for building an APK app for Android. It uses [Expo Application Services (EAS)](https://expo.dev/eas) and specifically [EAS Build](https://docs.expo.dev/build/introduction/), which builds the app binary for the project.

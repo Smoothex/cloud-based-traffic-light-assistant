@@ -1,25 +1,17 @@
-import { Text, View, StyleSheet, Dimensions, SafeAreaView, TouchableOpacity } from "react-native";
+import { Text, View, StyleSheet, SafeAreaView } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import * as Location from "expo-location";
 import MapView, { LatLng, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { GooglePlaceDetail, GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from "react-native-google-places-autocomplete";
 import MapViewDirections from "react-native-maps-directions";
 import Constants from "expo-constants";
-import MyLocation from 'react-native-vector-icons/MaterialIcons';
-import { convertMinutesToHours } from "@/utilClasses/timeConverter";
 import VoiceInput from "@/components/VoiceInput";
-
-const screen = Dimensions.get('window');
-const ASPECT_RATIO = screen.width / screen.height;
-const LATITUDE_DELTA = 0.04;
-const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
-
-const REGION_BERLIN = {
-  latitude: 52.520008,
-  longitude: 13.404954,
-  latitudeDelta: LATITUDE_DELTA,
-  longitudeDelta: LONGITUDE_DELTA
-};
+import NavigationButton from "@/components/NavigationButton";
+import { LocaleCodes } from "@/constants/LocaleCodes";
+import { convertMinutesToHours } from "@/utilClasses/timeConverter";
+import { calculateInitialRegion } from "@/utilClasses/calculationsUtil";
+import TraceRouteButton from "@/components/TraceRouteButton";
+import MyLocationButton from "@/components/MyLocationButton";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
@@ -29,9 +21,10 @@ export default function App() {
   const [destination, setDestination] = useState<LatLng | null>(null);
   const [distance, setDistance] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isNavigationActive, setIsNavigationActive] = useState(false);
+  const [locationWatcher, setLocationWatcher] = useState<Location.LocationSubscription>(null);
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
-  const [isNavigationActive, setIsNavigationActive] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -55,7 +48,7 @@ export default function App() {
    * @param {LatLng} position - The position to move the camera to.
    * @return {Promise<void>} A promise that resolves when the camera animation is complete.
    */
-  const moveToLocation = async (position: LatLng) => {
+  const moveToLocation = async (position: LatLng): Promise<void> => {
     const camera = await mapRef.current?.getCamera();
     if (camera) {
       const newRegion = {
@@ -73,14 +66,18 @@ export default function App() {
    * @param {GooglePlaceDetail | null} details - The details of the place selected.
    * @param {"origin" | "destination"} type - The type of location being updated.
    */
-  const onPressAddress = (details: GooglePlaceDetail | null, type: "origin" | "destination") => {
+  const onPressAddress = (details: GooglePlaceDetail | null, type: 'origin' | 'destination') => {
+    if (isNavigationActive) {
+      stopNavigation();
+    }
+  
     if (details) {
       const position = {
         latitude: details.geometry.location.lat,
         longitude: details.geometry.location.lng
       };
 
-      if (type === "origin") {
+      if (type === 'origin') {
         setOrigin(position);
       } else {
         setDestination(position);
@@ -103,45 +100,63 @@ export default function App() {
     }
   };
 
-/**
- * Starts navigation from the origin to the destination.
- * Subscribes to current user location and follows it when the user moves.
- */
-  const startNavigation = async () => {
+  /**
+   * Starts navigation from the origin to the destination.
+   * Subscribes to current user location and follows it when the user moves.
+   */
+  async function startNavigation() {
     if (!origin || !destination) {
       return;
     }
     moveToLocation(origin)
     setIsNavigationActive(true);
-    let subscription: { remove: any; };
     try {
-      subscription = await Location.watchPositionAsync(
+      await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
           distanceInterval: 3, // Update location every 3 meters
-          
         },
-        (location) => {
+        ({ coords }) => {
           const userLocation = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
           };
           moveToLocation(userLocation);
-        }
-      );
+        }).then((locationWatcher) => {
+          setLocationWatcher(locationWatcher);
+        }).catch((err) => {
+          console.log(err);
+        });
+      console.log('Tracking started');
     } catch (error) {
-      console.error("Error starting navigation:", error);
+      console.error('Error on starting navigation: ', error);
     }
-
-    return () => {
-      setIsNavigationActive(false);
-      subscription?.remove();
-    };
   };
 
+  async function stopNavigation() {
+    setIsNavigationActive(false);
+    locationWatcher?.remove();
+    console.log('Tracking stopped');
+  }
+
   function updateTextInputOnEndOfSpeaking(result: string) {
+    autoCompleteRef.current.clear();
+    autoCompleteRef.current.blur();
     autoCompleteRef.current.focus();
+    let splitResult: string[] = result.split(' ');
+    if (!splitResult.includes('Berlin')) {
+      result = result.concat(', Berlin');
+    }
     autoCompleteRef.current.setAddressText(result);
+    autoCompleteRef.current.setSelection
+  }
+
+  function playOnError(err: Error) {
+    console.log("Please try again! Error: ", err); //TODO implement text to speech here
+  }
+
+  function playOnNotFound() {
+    console.log("No results found!"); //TODO implement text to speech here
   }
 
   return (
@@ -150,7 +165,7 @@ export default function App() {
         style={styles.map}
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
-        initialRegion={REGION_BERLIN}
+        initialRegion={calculateInitialRegion()}
         showsUserLocation
         showsMyLocationButton={false}
       >
@@ -161,8 +176,8 @@ export default function App() {
             origin={origin}
             destination={destination}
             apikey={GOOGLE_API_KEY}
-            mode="WALKING"
-            strokeColor="#6644ff"
+            mode='WALKING'
+            strokeColor='#6644ff'
             strokeWidth={4}
             onReady={traceRouteOnReady}
           />
@@ -171,16 +186,23 @@ export default function App() {
       <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
           ref={autoCompleteRef}
-          placeholder="Search for your destination"
+          placeholder='Search for your destination'
           fetchDetails={true}
           enableHighAccuracyLocation
           keepResultsAfterBlur={false}
           minLength={3}
-          onPress={(data, details = null) => onPressAddress(details, "destination")}
+          onPress={(data, details = null) => onPressAddress(details, 'destination')}
+          onFail={err => playOnError(err)}
+          onNotFound={playOnNotFound}
+          listEmptyComponent={(
+            <View style={{flex: 1}}>
+              <Text>No results were found</Text>
+            </View>
+          )}
           query={{
             key: GOOGLE_API_KEY,
-            language: 'de',
-            components: 'country:de',
+            language: LocaleCodes.germanLanguageCode,
+            components: LocaleCodes.germanCountrySearchRestrictionCode,
           }}
           styles={{
             textInputContainer: styles.textInputContainer,
@@ -188,41 +210,27 @@ export default function App() {
             predefinedPlacesDescription: styles.predefinedPlacesDescription,
           }}
           textInputProps={{
+            blurOnSubmit: true,
             onFocus: () => {
-              console.log('elem focused');
+              console.log('text input is focused');
             },
-            onChangeText: () => {
-              console.log('text changed');
-            },
-            maxLength: 60,
+            maxLength: 80,
           }}
         />
-        <TouchableOpacity style={styles.button} onPress={traceRoute}>
-          <Text style={styles.buttonText}>Trace Route</Text>
-        </TouchableOpacity>
+        <TraceRouteButton traceRoute={traceRoute} />
         {distance && duration ? (
           <View>
             <Text>Distance: {distance.toFixed(2)} km</Text>
             <Text>Duration: {convertMinutesToHours(duration)}</Text>
           </View>
         ) : null}
-      {origin && destination ? (
-          <TouchableOpacity style={styles.navigationButton} onPress={startNavigation} disabled={!origin || !destination}>
-            <Text style={styles.navigationButtonText}>Start Navigation</Text>
-          </TouchableOpacity>
+        {origin && destination ? (
+          <NavigationButton startNavigation={startNavigation} stopNavigation={stopNavigation} origin={origin}
+            destination={destination} isNavigationActive={isNavigationActive} />
         ) : null}
       </View>
-      <TouchableOpacity style={styles.locationButton} onPress={() => {
-        if (location) {
-          moveToLocation({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-          });
-        }
-      }}>
-        <MyLocation name="my-location" size={50} color="#fff" />
-      </TouchableOpacity>
-      <VoiceInput styles={styles.speakingButton} setResults={updateTextInputOnEndOfSpeaking}></VoiceInput>
+      <MyLocationButton moveToLocation={moveToLocation} location={location}/>
+      <VoiceInput setResults={updateTextInputOnEndOfSpeaking} />
     </SafeAreaView>
   );
 }
@@ -235,10 +243,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   searchContainer: {
-    position: "absolute",
-    width: "90%",
-    backgroundColor: "white",
-    shadowColor: "black",
+    position: 'absolute',
+    width: '90%',
+    backgroundColor: 'white',
+    shadowColor: 'black',
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.5,
     shadowRadius: 4,
@@ -262,47 +270,5 @@ const styles = StyleSheet.create({
   },
   predefinedPlacesDescription: {
     color: '#1faadb',
-  },
-  button: {
-    backgroundColor: "#bbb",
-    paddingVertical: 12,
-    marginTop: 10,
-    borderRadius: 4,
-  },
-  buttonText: {
-    textAlign: "center",
-  },
-  locationButton: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-    backgroundColor: '#900',
-    padding: 10,
-    borderRadius: 50,
-    shadowColor: 'black',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  locationButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
-  },
-  speakingButton: {
-    position: 'absolute',
-    bottom: 30,
-    left: 20,
-  },
-  navigationButton: {
-    backgroundColor: "#0099ff", // Adjust background color as desired
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginTop: 10,
-    borderRadius: 4,
-  },
-  navigationButtonText: {
-    color: "#fff", // Adjust text color as desired
-    textAlign: "center",
   },
 });

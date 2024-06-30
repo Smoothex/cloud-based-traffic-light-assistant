@@ -14,6 +14,7 @@ import MyLocationButton from "@/components/MyLocationButton";
 import StepList from "@/components/StepList";
 import * as Location from "expo-location";
 import * as geolib from 'geolib';
+import * as Speech from 'expo-speech';
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
@@ -28,6 +29,8 @@ export default function App() {
   const [steps, setSteps] = useState<any[]>([]);
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
+
+  const speechOptions: Speech.SpeechOptions = { rate: 0.8, language: LocaleCodes.germanLanguageCode }; 
 
   useEffect(() => {
     (async () => {
@@ -104,7 +107,7 @@ export default function App() {
       const routeSteps = args.legs[0]?.steps.map((step: { distance: { text: any; }; end_location: any; html_instructions: string; }) => ({
         distance: step.distance.text,
         end_location: step.end_location,
-        instruction: step.html_instructions.replace(/<[^>]+>/g, ''),
+        instruction: step.html_instructions.replace(/<[^>]+>/g, ' '),
       }));
 
       setSteps(routeSteps || []);
@@ -143,6 +146,7 @@ export default function App() {
               longitude: nextStep.end_location.lng,
             };
             const distanceToNextStep = geolib.getDistance(userLocation, stepLocation);
+            Speech.speak(nextStep.distance + ' ' + nextStep.instruction, speechOptions);
         
             // Check if within a threshold distance (e.g., 10 meters)
             if (distanceToNextStep < 10) {
@@ -180,11 +184,8 @@ export default function App() {
   }
 
   function playOnError(err: Error) {
-    console.log("Please try again! Error: ", err); //TODO implement text to speech here
-  }
-
-  function playOnNotFound() {
-    console.log("No results found!"); //TODO implement text to speech here
+    Speech.speak('Ein Fehler ist aufgetreten. Bitte versuchen Sie es noch einmal.', speechOptions);
+    console.log("Error on speaking input: ", err);
   }
   
   return (
@@ -205,6 +206,7 @@ export default function App() {
             destination={destination}
             apikey={GOOGLE_API_KEY}
             mode='WALKING'
+            language={LocaleCodes.germanLanguageCode}
             strokeColor='#6644ff'
             strokeWidth={4}
             onReady={traceRouteOnReady}
@@ -221,7 +223,6 @@ export default function App() {
           minLength={3}
           onPress={(data, details = null) => onPressAddress(details, 'destination')}
           onFail={err => playOnError(err)}
-          onNotFound={playOnNotFound}
           listEmptyComponent={(
             <View style={{flex: 1}}>
               <Text>No results were found</Text>

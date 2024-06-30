@@ -1,6 +1,7 @@
 import { Text, View, StyleSheet, SafeAreaView } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import * as Location from "expo-location";
+import * as geolib from 'geolib';
 import MapView, { LatLng, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { GooglePlaceDetail, GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from "react-native-google-places-autocomplete";
 import MapViewDirections from "react-native-maps-directions";
@@ -23,6 +24,7 @@ export default function App() {
   const [duration, setDuration] = useState(0);
   const [isNavigationActive, setIsNavigationActive] = useState(false);
   const [locationWatcher, setLocationWatcher] = useState<Location.LocationSubscription>(null);
+  const [steps, setSteps] = useState<any[]>([]);
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
 
@@ -97,6 +99,14 @@ export default function App() {
     if (args) {
       setDistance(args.distance);
       setDuration(Math.round(args.duration));
+
+      const routeSteps = args.legs[0]?.steps.map((step: { distance: { text: any; }; end_location: any; html_instructions: string; }) => ({
+        distance: step.distance.text,
+        end_location: step.end_location,
+        instruction: step.html_instructions.replace(/<[^>]+>/g, ''),
+      }));
+
+      setSteps(routeSteps || []);
     }
   };
 
@@ -122,6 +132,23 @@ export default function App() {
             longitude: coords.longitude,
           };
           moveToLocation(userLocation);
+          
+          if (steps.length > 0) {
+            console.log("All steps: ", steps);
+            const nextStep = steps[0]; // Get the next step to display
+            console.log("Next step: ", nextStep);
+            const stepLocation = {
+              latitude: nextStep.end_location.lat,
+              longitude: nextStep.end_location.lng,
+            };
+            const distanceToNextStep = geolib.getDistance(userLocation, stepLocation);
+        
+            // Check if within a threshold distance (e.g., 10 meters)
+            if (distanceToNextStep < 10) {
+              setSteps((prevSteps) => prevSteps.slice(1)); // Remove the reached step
+            }
+          }
+          
         }).then((locationWatcher) => {
           setLocationWatcher(locationWatcher);
         }).catch((err) => {
@@ -159,6 +186,16 @@ export default function App() {
     console.log("No results found!"); //TODO implement text to speech here
   }
 
+  const StepList = ({ steps }: { steps: { instruction: string; distance: string; }[] }) => (
+    <View style={styles.stepsContainer}>
+      {steps.length > 0 && (
+        <View style={styles.stepItem}>
+          <Text>Next: {steps[0].instruction} ({steps[0].distance})</Text>
+        </View>
+      )}
+    </View>
+  );
+  
   return (
     <SafeAreaView style={styles.container}>
       <MapView
@@ -229,6 +266,9 @@ export default function App() {
             destination={destination} isNavigationActive={isNavigationActive} />
         ) : null}
       </View>
+      {isNavigationActive && steps.length > 0 && (
+        <StepList steps={steps} />
+      )}
       <MyLocationButton moveToLocation={moveToLocation} location={location}/>
       <VoiceInput setResults={updateTextInputOnEndOfSpeaking} />
     </SafeAreaView>
@@ -270,5 +310,23 @@ const styles = StyleSheet.create({
   },
   predefinedPlacesDescription: {
     color: '#1faadb',
+  },
+  stepsContainer: {
+    position: 'absolute',
+    bottom: 120,
+    width: '90%',
+    backgroundColor: 'white',
+    shadowColor: 'black',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 4,
+    padding: 10,
+    borderRadius: 8,
+    alignSelf: 'center',
+    zIndex: 1,
+  },
+  stepItem: {
+    marginVertical: 5,
   },
 });

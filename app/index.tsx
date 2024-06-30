@@ -1,7 +1,5 @@
 import { Text, View, StyleSheet, SafeAreaView } from "react-native";
 import { useState, useEffect, useRef } from "react";
-import * as Location from "expo-location";
-import * as geolib from 'geolib';
 import MapView, { LatLng, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { GooglePlaceDetail, GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from "react-native-google-places-autocomplete";
 import MapViewDirections from "react-native-maps-directions";
@@ -14,6 +12,8 @@ import { calculateInitialRegion } from "@/utilClasses/calculationsUtil";
 import TraceRouteButton from "@/components/TraceRouteButton";
 import MyLocationButton from "@/components/MyLocationButton";
 import StepList from "@/components/StepList";
+import * as Location from "expo-location";
+import * as geolib from 'geolib';
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 

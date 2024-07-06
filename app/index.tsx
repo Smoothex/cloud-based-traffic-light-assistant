@@ -14,8 +14,11 @@ import MyLocationButton from "@/components/MyLocationButton";
 import StepList from "@/components/StepList";
 import * as Location from "expo-location";
 import * as geolib from 'geolib';
+import * as Speech from 'expo-speech';
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
+const MIN_DISTANCE_TO_NEXT_STEP = 10;
+const MIN_DISTANCE_FOR_REPEATING_INSTRUCTIONS = 5;
 
 export default function App() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -26,8 +29,11 @@ export default function App() {
   const [isNavigationActive, setIsNavigationActive] = useState(false);
   const [locationWatcher, setLocationWatcher] = useState<Location.LocationSubscription>(null);
   const [steps, setSteps] = useState<any[]>([]);
+  const [lastDistanceWhenSpeech, setLastDistanceWhenSpeech] = useState(0);
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
+
+  const speechOptions: Speech.SpeechOptions = { rate: 0.8, language: LocaleCodes.germanLanguageCode };
 
   useEffect(() => {
     (async () => {
@@ -73,7 +79,7 @@ export default function App() {
     if (isNavigationActive) {
       stopNavigation();
     }
-  
+
     if (details) {
       const position = {
         latitude: details.geometry.location.lat,
@@ -104,7 +110,7 @@ export default function App() {
       const routeSteps = args.legs[0]?.steps.map((step: { distance: { text: any; }; end_location: any; html_instructions: string; }) => ({
         distance: step.distance.text,
         end_location: step.end_location,
-        instruction: step.html_instructions.replace(/<[^>]+>/g, ''),
+        instruction: step.html_instructions.replace(/(<([^>]+)>)/ig, ' ').replace(/\s+/g, ' ').trim(),
       }));
 
       setSteps(routeSteps || []);
@@ -133,7 +139,7 @@ export default function App() {
             longitude: coords.longitude,
           };
           moveToLocation(userLocation);
-          
+
           if (!!steps.length) {
             console.log("All steps: ", steps);
             const nextStep = steps[0]; // Get the next step to display
@@ -143,13 +149,19 @@ export default function App() {
               longitude: nextStep.end_location.lng,
             };
             const distanceToNextStep = geolib.getDistance(userLocation, stepLocation);
-        
+            if (lastDistanceWhenSpeech - distanceToNextStep >= MIN_DISTANCE_FOR_REPEATING_INSTRUCTIONS || lastDistanceWhenSpeech === 0) {
+              // Play the instruction only the first time and after a pre-defined distance is covered 
+              Speech.speak(nextStep.distance + ' ' + nextStep.instruction, speechOptions);
+              setLastDistanceWhenSpeech(distanceToNextStep);
+            }
+
             // Check if within a threshold distance (e.g., 10 meters)
-            if (distanceToNextStep < 10) {
+            if (distanceToNextStep < MIN_DISTANCE_TO_NEXT_STEP) {
               setSteps((prevSteps) => prevSteps.slice(1)); // Remove the reached step
+              setLastDistanceWhenSpeech(0); // Reset the counter for when to repeat the instruction
             }
           }
-          
+
         }).then((locationWatcher) => {
           setLocationWatcher(locationWatcher);
         }).catch((err) => {
@@ -162,7 +174,10 @@ export default function App() {
   };
 
   async function stopNavigation() {
+    // Reset all states and stop processes
     setIsNavigationActive(false);
+    setLastDistanceWhenSpeech(0);
+    Speech.stop();
     locationWatcher?.remove();
     console.log('Tracking stopped');
   }
@@ -171,22 +186,19 @@ export default function App() {
     autoCompleteRef.current.clear();
     autoCompleteRef.current.blur();
     autoCompleteRef.current.focus();
-    let splitResult: string[] = result.split(' ');
-    if (!splitResult.includes('Berlin')) {
+
+    if (!result.split(' ').includes('Berlin')) {
       result = result.concat(', Berlin');
     }
+
     autoCompleteRef.current.setAddressText(result);
-    autoCompleteRef.current.setSelection
   }
 
   function playOnError(err: Error) {
-    console.log("Please try again! Error: ", err); //TODO implement text to speech here
+    Speech.speak('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.', speechOptions);
+    console.log("Error on speaking input: ", err);
   }
 
-  function playOnNotFound() {
-    console.log("No results found!"); //TODO implement text to speech here
-  }
-  
   return (
     <SafeAreaView style={styles.container}>
       <MapView
@@ -205,6 +217,7 @@ export default function App() {
             destination={destination}
             apikey={GOOGLE_API_KEY}
             mode='WALKING'
+            language={LocaleCodes.germanLanguageCode}
             strokeColor='#6644ff'
             strokeWidth={4}
             onReady={traceRouteOnReady}
@@ -221,9 +234,8 @@ export default function App() {
           minLength={3}
           onPress={(data, details = null) => onPressAddress(details, 'destination')}
           onFail={err => playOnError(err)}
-          onNotFound={playOnNotFound}
           listEmptyComponent={(
-            <View style={{flex: 1}}>
+            <View style={{ flex: 1 }}>
               <Text>No results were found</Text>
             </View>
           )}
@@ -260,7 +272,7 @@ export default function App() {
       {isNavigationActive && !!steps.length && (
         <StepList steps={steps} />
       )}
-      <MyLocationButton moveToLocation={moveToLocation} location={location}/>
+      <MyLocationButton moveToLocation={moveToLocation} location={location} />
       <VoiceInput setResults={updateTextInputOnEndOfSpeaking} />
     </SafeAreaView>
   );

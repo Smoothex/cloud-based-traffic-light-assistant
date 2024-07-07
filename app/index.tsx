@@ -15,10 +15,16 @@ import StepList from "@/components/StepList";
 import * as Location from "expo-location";
 import * as geolib from 'geolib';
 import * as Speech from 'expo-speech';
+import { Audio } from 'expo-av';
+import { GeolibInputCoordinates } from "geolib/es/types";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 const MIN_DISTANCE_TO_NEXT_STEP = 10;
 const MIN_DISTANCE_FOR_REPEATING_INSTRUCTIONS = 5;
+const CHECK_INTERVAL = 5000; // Check every 5 seconds
+const MIN_OFF_ROUTE_DISTANCE = 5; // 5 meters
+const OPPOSITE_DIRECTION_THRESHOLD = 135; // degrees
+const STATIONARY_THRESHOLD = 0.1;
 
 export default function App() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -30,6 +36,11 @@ export default function App() {
   const [locationWatcher, setLocationWatcher] = useState<Location.LocationSubscription>(null);
   const [steps, setSteps] = useState<any[]>([]);
   const [lastDistanceWhenSpeech, setLastDistanceWhenSpeech] = useState(0);
+  const [sound, setSound] = useState<Audio.Sound | undefined>();
+  const [isOffRoute, setIsOffRoute] = useState(false);
+  const [offRouteTimer, setOffRouteTimer] = useState(null);
+  const [userHeading, setUserHeading] = useState(0);
+  const [headingWatcher, setHeadingWatcher] = useState(null);
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
 
@@ -132,11 +143,13 @@ export default function App() {
         {
           accuracy: Location.Accuracy.BestForNavigation,
           distanceInterval: 3, // Update location every 3 meters
+          timeInterval: CHECK_INTERVAL
         },
-        ({ coords }) => {
+        async ({ coords }) => {
           const userLocation = {
             latitude: coords.latitude,
             longitude: coords.longitude,
+            speed: coords.speed || 0,
           };
           moveToLocation(userLocation);
 
@@ -160,7 +173,14 @@ export default function App() {
               setSteps((prevSteps) => prevSteps.slice(1)); // Remove the reached step
               setLastDistanceWhenSpeech(0); // Reset the counter for when to repeat the instruction
             }
+
+            checkOffRoute(userLocation);
           }
+
+          const headingWatcher = await Location.watchHeadingAsync((headingData) => {
+            setUserHeading(headingData.trueHeading);
+          });
+          setHeadingWatcher(headingWatcher);
 
         }).then((locationWatcher) => {
           setLocationWatcher(locationWatcher);
@@ -176,9 +196,17 @@ export default function App() {
   async function stopNavigation() {
     // Reset all states and stop processes
     setIsNavigationActive(false);
-    setLastDistanceWhenSpeech(0);
-    Speech.stop();
     locationWatcher?.remove();
+    setLastDistanceWhenSpeech(0);
+    stopBeepSound();
+    if (offRouteTimer !== null) {
+      clearTimeout(offRouteTimer);
+      setOffRouteTimer(null);
+    }
+    if (headingWatcher) {
+      headingWatcher.remove();
+    }
+    Speech.stop();
     console.log('Tracking stopped');
   }
 
@@ -197,6 +225,73 @@ export default function App() {
   function playOnError(err: Error) {
     Speech.speak('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.', speechOptions);
     console.log("Error on speaking input: ", err);
+  }
+
+  function checkOffRoute(userLocation: any) {
+    const nextStep = steps[0];
+    const stepLocation = {
+      latitude: nextStep.end_location.lat,
+      longitude: nextStep.end_location.lng,
+    };
+    
+    const distanceToNextStep = geolib.getDistance(userLocation, stepLocation);
+    const bearingToNextStep = geolib.getRhumbLineBearing(userLocation, stepLocation);
+    const userBearing = userHeading;
+  
+    const bearingDifference = Math.abs(bearingToNextStep - userBearing);
+  
+    if (distanceToNextStep > MIN_OFF_ROUTE_DISTANCE) {
+      setIsOffRoute(true);
+      
+      if (bearingDifference > OPPOSITE_DIRECTION_THRESHOLD) {
+        // User is going in the opposite direction
+        playBeepSound(1);
+      } else {
+        // User is off-route but not in the opposite direction
+        playBeepSound(0.5);
+      }
+  
+      // If user is stationary and off-route
+      if (userLocation.speed <= STATIONARY_THRESHOLD) {
+        stopBeepSound();
+        if (offRouteTimer === null) {
+          setOffRouteTimer(setTimeout(speakOffRouteMessage, 10000)); // Wait 10 seconds before speaking
+        }
+      } else {
+        if (offRouteTimer !== null) {
+          clearTimeout(offRouteTimer);
+          setOffRouteTimer(null);
+        }
+      }
+    } else {
+      setIsOffRoute(false);
+      stopBeepSound();
+      if (offRouteTimer !== null) {
+        clearTimeout(offRouteTimer);
+        setOffRouteTimer(null);
+      }
+    }
+  }
+
+  async function playBeepSound(intensity: number) {
+    const { sound } = await Audio.Sound.createAsync(
+      require('../assets/sounds/beep.mp3')
+    );
+    setSound(sound);
+  
+    // Play the sound at different rates based on intensity
+    await sound.setRateAsync(0.5 + (intensity * 0.5), true);
+    await sound.playAsync();
+  }
+  
+  function stopBeepSound() {
+    if (sound) {
+      sound.unloadAsync();
+    }
+  }
+  
+  function speakOffRouteMessage() {
+    Speech.speak('Sie sind möglicherweise vom Weg abgekommen.', { language: 'de-DE' });
   }
 
   return (

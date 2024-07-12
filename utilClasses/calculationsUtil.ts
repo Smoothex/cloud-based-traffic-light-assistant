@@ -1,6 +1,7 @@
 import { Dimensions } from "react-native";
+import { Region } from "react-native-maps";
 
-export function calculateInitialRegion() {
+export function calculateInitialRegion(): Region {
     const screen = Dimensions.get('window');
     const ASPECT_RATIO = screen.width / screen.height;
     const LATITUDE_DELTA = 0.04;

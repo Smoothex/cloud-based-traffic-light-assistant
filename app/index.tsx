@@ -155,13 +155,9 @@ export default function App() {
             };
             const distanceToNextStep: number = geolib.getDistance(userLocation, stepLocation);
 
-            if (lastDistanceWhenInstructionsRead === 0) {
-              Speech.speak(nextStep.distance + ' ' + nextStep.instruction, SpeechOptionsObject);
-              lastDistanceWhenInstructionsRead = distanceToNextStep;
-            }
-
-            if (lastDistanceWhenInstructionsRead !== distanceToNextStep && lastDistanceWhenInstructionsRead - distanceToNextStep >= Thresholds.MIN_DISTANCE_FOR_REPEATING_INSTRUCTIONS) {
-              // Play the instruction only the first time and after a pre-defined distance is covered
+            if (lastDistanceWhenInstructionsRead === 0 || (lastDistanceWhenInstructionsRead !== distanceToNextStep 
+              && lastDistanceWhenInstructionsRead - distanceToNextStep >= Thresholds.MIN_DISTANCE_FOR_REPEATING_INSTRUCTIONS)) {
+              // Play the instruction only the first time or when a pre-defined distance is covered
               Speech.speak(nextStep.distance + ' ' + nextStep.instruction, SpeechOptionsObject);
               lastDistanceWhenInstructionsRead = distanceToNextStep;
             }
@@ -342,9 +338,6 @@ export default function App() {
           }}
           textInputProps={{
             blurOnSubmit: true,
-            onFocus: () => {
-              console.log('text input is focused');
-            },
             maxLength: 80,
           }}
         />

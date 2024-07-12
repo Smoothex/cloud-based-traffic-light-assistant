@@ -7,7 +7,9 @@ import Constants from "expo-constants";
 import VoiceInput from "@/components/VoiceInput";
 import NavigationButton from "@/components/NavigationButton";
 import { LocaleCodes } from "@/constants/LocaleCodes";
-import { convertMinutesToHours } from "@/utilClasses/timeConverter";
+import { Thresholds } from "@/constants/Thresholds";
+import { SpeechOptionsObject, SpeakingThresholds } from "@/constants/SpeechConstants";
+import { convertMinutesToHours, convertHtmlTextToPlainText } from "@/utilClasses/converterUtil";
 import { calculateInitialRegion } from "@/utilClasses/calculationsUtil";
 import TraceRouteButton from "@/components/TraceRouteButton";
 import MyLocationButton from "@/components/MyLocationButton";
@@ -19,12 +21,6 @@ import { Audio } from 'expo-av';
 import { GeolibInputCoordinates } from "geolib/es/types";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
-const MIN_DISTANCE_TO_NEXT_STEP = 10;
-const MIN_DISTANCE_FOR_REPEATING_INSTRUCTIONS = 5;
-const CHECK_INTERVAL = 5000; // Check every 5 seconds
-const MIN_OFF_ROUTE_DISTANCE = 5; // 5 meters
-const OPPOSITE_DIRECTION_THRESHOLD = 135; // degrees
-const STATIONARY_THRESHOLD = 0.1;
 
 export default function App() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -34,7 +30,7 @@ export default function App() {
   const [duration, setDuration] = useState(0);
   const [isNavigationActive, setIsNavigationActive] = useState(false);
   const [locationWatcher, setLocationWatcher] = useState<Location.LocationSubscription>(null);
-  const [steps, setSteps] = useState<any[]>([]);
+  const [steps, setSteps] = useState<StepsArray>([]);
   const [lastDistanceWhenSpeech, setLastDistanceWhenSpeech] = useState(0);
   const [sound, setSound] = useState<Audio.Sound | undefined>();
   const [isOffRoute, setIsOffRoute] = useState(false);
@@ -43,8 +39,6 @@ export default function App() {
   const [headingWatcher, setHeadingWatcher] = useState(null);
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
-
-  const speechOptions: Speech.SpeechOptions = { rate: 0.8, language: LocaleCodes.germanLanguageCode };
 
   useEffect(() => {
     (async () => {
@@ -65,7 +59,7 @@ export default function App() {
   /**
    * Moves the camera to the specified location on the map.
    *
-   * @param {LatLng} position - The position to move the camera to.
+   * @param {LatLng} position The position to move the camera to.
    * @return {Promise<void>} A promise that resolves when the camera animation is complete.
    */
   const moveToLocation = async (position: LatLng): Promise<void> => {
@@ -118,10 +112,10 @@ export default function App() {
       setDistance(args.distance);
       setDuration(Math.round(args.duration));
 
-      const routeSteps = args.legs[0]?.steps.map((step: { distance: { text: any; }; end_location: any; html_instructions: string; }) => ({
+      const routeSteps: StepsArray = args.legs[0]?.steps.map((step: { distance: { text: string; }; end_location: {lat: number, lng: number}; html_instructions: string; }) => ({
         distance: step.distance.text,
         end_location: step.end_location,
-        instruction: step.html_instructions.replace(/(<([^>]+)>)/ig, ' ').replace(/\s+/g, ' ').trim(),
+        instruction: convertHtmlTextToPlainText(step.html_instructions)
       }));
 
       setSteps(routeSteps || []);
@@ -142,8 +136,8 @@ export default function App() {
       await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
-          distanceInterval: 3, // Update location every 3 meters
-          timeInterval: CHECK_INTERVAL
+          distanceInterval: Thresholds.UPDATE_LOCATION_INTERVAL, // Update location after each predefined number of meters
+          timeInterval: Thresholds.CHECK_INTERVAL
         },
         async ({ coords }) => {
           const userLocation = {
@@ -162,14 +156,14 @@ export default function App() {
               longitude: nextStep.end_location.lng,
             };
             const distanceToNextStep = geolib.getDistance(userLocation, stepLocation);
-            if (lastDistanceWhenSpeech - distanceToNextStep >= MIN_DISTANCE_FOR_REPEATING_INSTRUCTIONS || lastDistanceWhenSpeech === 0) {
+            if (lastDistanceWhenSpeech - distanceToNextStep >= Thresholds.MIN_DISTANCE_FOR_REPEATING_INSTRUCTIONS || lastDistanceWhenSpeech === 0) {
               // Play the instruction only the first time and after a pre-defined distance is covered 
-              Speech.speak(nextStep.distance + ' ' + nextStep.instruction, speechOptions);
+              Speech.speak(nextStep.distance + ' ' + nextStep.instruction, SpeechOptionsObject);
               setLastDistanceWhenSpeech(distanceToNextStep);
             }
 
             // Check if within a threshold distance (e.g., 10 meters)
-            if (distanceToNextStep < MIN_DISTANCE_TO_NEXT_STEP) {
+            if (distanceToNextStep < Thresholds.MIN_DISTANCE_TO_NEXT_STEP) {
               setSteps((prevSteps) => prevSteps.slice(1)); // Remove the reached step
               setLastDistanceWhenSpeech(0); // Reset the counter for when to repeat the instruction
             }
@@ -223,7 +217,7 @@ export default function App() {
   }
 
   function playOnError(err: Error) {
-    Speech.speak('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.', speechOptions);
+    Speech.speak('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.', SpeechOptionsObject);
     console.log("Error on speaking input: ", err);
   }
 
@@ -240,10 +234,10 @@ export default function App() {
   
     const bearingDifference = Math.abs(bearingToNextStep - userBearing);
   
-    if (distanceToNextStep > MIN_OFF_ROUTE_DISTANCE) {
+    if (distanceToNextStep > Thresholds.MIN_OFF_ROUTE_DISTANCE) {
       setIsOffRoute(true);
       
-      if (bearingDifference > OPPOSITE_DIRECTION_THRESHOLD) {
+      if (bearingDifference > Thresholds.OPPOSITE_DIRECTION_THRESHOLD) {
         // User is going in the opposite direction
         playBeepSound(1);
       } else {
@@ -252,10 +246,10 @@ export default function App() {
       }
   
       // If user is stationary and off-route
-      if (userLocation.speed <= STATIONARY_THRESHOLD) {
+      if (userLocation.speed <= Thresholds.STATIONARY_THRESHOLD) {
         stopBeepSound();
         if (offRouteTimer === null) {
-          setOffRouteTimer(setTimeout(speakOffRouteMessage, 10000)); // Wait 10 seconds before speaking
+          setOffRouteTimer(setTimeout(speakOffRouteMessage, SpeakingThresholds.DURATION_OF_WAITING_TIMER_FOR_OFF_ROUTE_MESSAGE)); // Wait some seconds before speaking
         }
       } else {
         if (offRouteTimer !== null) {
@@ -291,7 +285,7 @@ export default function App() {
   }
   
   function speakOffRouteMessage() {
-    Speech.speak('Sie sind möglicherweise vom Weg abgekommen.', { language: 'de-DE' });
+    Speech.speak('Sie sind möglicherweise vom Weg abgekommen.', SpeechOptionsObject);
   }
 
   return (
@@ -319,9 +313,11 @@ export default function App() {
           />
         )}
       </MapView>
+
       <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
           ref={autoCompleteRef}
+          debounce={300}
           placeholder='Search for your destination'
           fetchDetails={true}
           enableHighAccuracyLocation
@@ -364,11 +360,16 @@ export default function App() {
             destination={destination} isNavigationActive={isNavigationActive} />
         ) : null}
       </View>
-      {isNavigationActive && !!steps.length && (
-        <StepList steps={steps} />
-      )}
+
+      {isNavigationActive && !!steps.length &&
+        (<StepList steps={steps} />)
+      }
+
       <MyLocationButton moveToLocation={moveToLocation} location={location} />
-      <VoiceInput setResults={updateTextInputOnEndOfSpeaking} />
+
+      {!isNavigationActive &&
+        (<VoiceInput setResults={updateTextInputOnEndOfSpeaking} />) // show voice input button when navigation is off
+      }
     </SafeAreaView>
   );
 }

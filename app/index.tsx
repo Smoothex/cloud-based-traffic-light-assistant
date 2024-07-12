@@ -107,7 +107,7 @@ export default function App() {
       setDistance(args.distance);
       setDuration(Math.round(args.duration));
 
-      const routeSteps: StepsArray = args.legs[0]?.steps.map((step: { distance: { text: string; }; end_location: {lat: number, lng: number}; html_instructions: string; }) => ({
+      const routeSteps: StepsArray = args.legs[0]?.steps.map((step: { distance: { text: string; }; end_location: { lat: number, lng: number }; html_instructions: string; }) => ({
         distance: step.distance.text,
         end_location: step.end_location,
         instruction: convertHtmlTextToPlainText(step.html_instructions)
@@ -137,7 +137,7 @@ export default function App() {
           timeInterval: Thresholds.CHECK_INTERVAL
         },
         async ({ coords }) => {
-          const userLocation = {
+          const userLocation: UserLocationSpeed = {
             latitude: coords.latitude,
             longitude: coords.longitude,
             speed: coords.speed || 0,
@@ -146,13 +146,14 @@ export default function App() {
 
           if (!!steps.length) {
             console.log("All steps: ", steps);
-            const nextStep = steps[0]; // Get the next step to display
+            const nextStep: SingleStep = steps[0]; // Get the next step to display
             console.log("Next step: ", nextStep);
-            const stepLocation = {
+
+            const stepLocation: LatLng = {
               latitude: nextStep.end_location.lat,
               longitude: nextStep.end_location.lng,
             };
-            const distanceToNextStep = geolib.getDistance(userLocation, stepLocation);
+            const distanceToNextStep: number = geolib.getDistance(userLocation, stepLocation);
 
             if (lastDistanceWhenInstructionsRead === 0) {
               Speech.speak(nextStep.distance + ' ' + nextStep.instruction, SpeechOptionsObject);
@@ -171,7 +172,7 @@ export default function App() {
               lastDistanceWhenInstructionsRead = 0; // Reset the counter for when to repeat the instruction
             }
 
-            checkOffRoute(userLocation);
+            checkOffRoute(userLocation, stepLocation, distanceToNextStep);
           }
 
           const headingWatcher = await Location.watchHeadingAsync((headingData) => {
@@ -227,22 +228,15 @@ export default function App() {
     console.log("Error on speaking input: ", err);
   }
 
-  function checkOffRoute(userLocation: any) {
-    const nextStep = steps[0];
-    const stepLocation = {
-      latitude: nextStep.end_location.lat,
-      longitude: nextStep.end_location.lng,
-    };
-    
-    const distanceToNextStep = geolib.getDistance(userLocation, stepLocation);
-    const bearingToNextStep = geolib.getRhumbLineBearing(userLocation, stepLocation);
-    const userBearing = userHeading;
-  
-    const bearingDifference = Math.abs(bearingToNextStep - userBearing);
-  
+  function checkOffRoute(userLocation: UserLocationSpeed, stepLocation: LatLng, distanceToNextStep: number) {
+    const bearingToNextStep: number = geolib.getRhumbLineBearing(userLocation, stepLocation);
+    const userBearing: number = userHeading;
+
+    const bearingDifference: number = Math.abs(bearingToNextStep - userBearing);
+
     if (distanceToNextStep > Thresholds.MIN_OFF_ROUTE_DISTANCE) {
       setIsOffRoute(true);
-      
+
       if (bearingDifference > Thresholds.OPPOSITE_DIRECTION_THRESHOLD) {
         // User is going in the opposite direction
         playBeepSound(1);
@@ -250,15 +244,15 @@ export default function App() {
         // User is off-route but not in the opposite direction
         playBeepSound(0.5);
       }
-  
+
       // If user is stationary and off-route
       if (userLocation.speed <= Thresholds.STATIONARY_THRESHOLD) {
         stopBeepSound();
-        if (offRouteTimer === null) {
+        if (!offRouteTimer) {
           setOffRouteTimer(setTimeout(speakOffRouteMessage, SpeakingThresholds.DURATION_OF_WAITING_TIMER_FOR_OFF_ROUTE_MESSAGE)); // Wait some seconds before speaking
         }
       } else {
-        if (offRouteTimer !== null) {
+        if (offRouteTimer) {
           clearTimeout(offRouteTimer);
           setOffRouteTimer(null);
         }
@@ -266,7 +260,7 @@ export default function App() {
     } else {
       setIsOffRoute(false);
       stopBeepSound();
-      if (offRouteTimer !== null) {
+      if (offRouteTimer) {
         clearTimeout(offRouteTimer);
         setOffRouteTimer(null);
       }
@@ -278,18 +272,18 @@ export default function App() {
       require('../assets/sounds/beep.mp3')
     );
     setSound(sound);
-  
+
     // Play the sound at different rates based on intensity
     await sound.setRateAsync(0.5 + (intensity * 0.5), true);
     await sound.playAsync();
   }
-  
+
   function stopBeepSound() {
     if (sound) {
       sound.unloadAsync();
     }
   }
-  
+
   function speakOffRouteMessage() {
     Speech.speak('Sie sind möglicherweise vom Weg abgekommen.', SpeechOptionsObject);
   }

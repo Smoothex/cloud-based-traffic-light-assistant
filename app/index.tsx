@@ -18,7 +18,6 @@ import * as Location from "expo-location";
 import * as geolib from 'geolib';
 import * as Speech from 'expo-speech';
 import { Audio } from 'expo-av';
-import { GeolibInputCoordinates } from "geolib/es/types";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
@@ -31,7 +30,6 @@ export default function App() {
   const [isNavigationActive, setIsNavigationActive] = useState(false);
   const [locationWatcher, setLocationWatcher] = useState<Location.LocationSubscription>(null);
   const [steps, setSteps] = useState<StepsArray>([]);
-  const [lastDistanceWhenSpeech, setLastDistanceWhenSpeech] = useState(0);
   const [sound, setSound] = useState<Audio.Sound | undefined>();
   const [isOffRoute, setIsOffRoute] = useState(false);
   const [offRouteTimer, setOffRouteTimer] = useState(null);
@@ -39,6 +37,7 @@ export default function App() {
   const [headingWatcher, setHeadingWatcher] = useState(null);
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
+  let lastDistanceWhenInstructionsRead = 0;
 
   useEffect(() => {
     (async () => {
@@ -91,11 +90,7 @@ export default function App() {
         longitude: details.geometry.location.lng
       };
 
-      if (type === 'origin') {
-        setOrigin(position);
-      } else {
-        setDestination(position);
-      }
+      type === 'origin' ? setOrigin(position) : setDestination(position);
 
       moveToLocation(position);
     }
@@ -130,8 +125,10 @@ export default function App() {
     if (!origin || !destination) {
       return;
     }
+
     moveToLocation(origin)
     setIsNavigationActive(true);
+
     try {
       await Location.watchPositionAsync(
         {
@@ -156,16 +153,22 @@ export default function App() {
               longitude: nextStep.end_location.lng,
             };
             const distanceToNextStep = geolib.getDistance(userLocation, stepLocation);
-            if (lastDistanceWhenSpeech - distanceToNextStep >= Thresholds.MIN_DISTANCE_FOR_REPEATING_INSTRUCTIONS || lastDistanceWhenSpeech === 0) {
-              // Play the instruction only the first time and after a pre-defined distance is covered 
+
+            if (lastDistanceWhenInstructionsRead === 0) {
               Speech.speak(nextStep.distance + ' ' + nextStep.instruction, SpeechOptionsObject);
-              setLastDistanceWhenSpeech(distanceToNextStep);
+              lastDistanceWhenInstructionsRead = distanceToNextStep;
             }
 
-            // Check if within a threshold distance (e.g., 10 meters)
-            if (distanceToNextStep < Thresholds.MIN_DISTANCE_TO_NEXT_STEP) {
+            if (lastDistanceWhenInstructionsRead !== distanceToNextStep && lastDistanceWhenInstructionsRead - distanceToNextStep >= Thresholds.MIN_DISTANCE_FOR_REPEATING_INSTRUCTIONS) {
+              // Play the instruction only the first time and after a pre-defined distance is covered
+              Speech.speak(nextStep.distance + ' ' + nextStep.instruction, SpeechOptionsObject);
+              lastDistanceWhenInstructionsRead = distanceToNextStep;
+            }
+
+            // Check if within a threshold distance
+            if (distanceToNextStep <= Thresholds.MIN_DISTANCE_TO_NEXT_STEP) {
               setSteps((prevSteps) => prevSteps.slice(1)); // Remove the reached step
-              setLastDistanceWhenSpeech(0); // Reset the counter for when to repeat the instruction
+              lastDistanceWhenInstructionsRead = 0; // Reset the counter for when to repeat the instruction
             }
 
             checkOffRoute(userLocation);
@@ -191,15 +194,18 @@ export default function App() {
     // Reset all states and stop processes
     setIsNavigationActive(false);
     locationWatcher?.remove();
-    setLastDistanceWhenSpeech(0);
+    lastDistanceWhenInstructionsRead = 0;
     stopBeepSound();
-    if (offRouteTimer !== null) {
+
+    if (offRouteTimer) {
       clearTimeout(offRouteTimer);
       setOffRouteTimer(null);
     }
+
     if (headingWatcher) {
       headingWatcher.remove();
     }
+
     Speech.stop();
     console.log('Tracking stopped');
   }

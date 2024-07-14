@@ -9,7 +9,8 @@ app.options('*', cors())
 
 var corsOptions = {
     origin: 'http://localhost:8081',
-    optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
+    methods:['GET'], // critical
+    optionsSuccessStatus: 200 // 204 for somebrowser is not permitted
 }
 
 
@@ -29,10 +30,15 @@ app.post('/', (req, res)=>{
     res.send(`Welcome ${name}`);
 })
 
-app.get('/trafficlights/maps', cors(corsOptions), (req, res)=>{
-    const {intersectionId} = req.body;
-    const mapsResponse =require(`./data/MAP_${intersectionId}.json`)
-    res.send(mapsResponse);
+app.get('/trafficlights/maps/:intersectionId', cors(corsOptions), (req, res)=>{
+    const {intersectionId} = req.params;
+    try {
+        const mapsResponse = require(`./data/MAP_${intersectionId}.json`);
+        res.send(mapsResponse);
+    } catch (error) {
+        res.status(404).send({ error: 'Data not found' });
+    }
+
 })
 
 

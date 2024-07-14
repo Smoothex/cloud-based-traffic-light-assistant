@@ -2,8 +2,9 @@
   "name": "cloud-based-traffic-light-assistant",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "proxy": "http://localhost:3000/",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start & node ./server/server.js",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",

@@ -1,4 +1,4 @@
-import { Text, View, StyleSheet, SafeAreaView } from "react-native";
+import {Text, View, StyleSheet, SafeAreaView, Image} from "react-native";
 import { useState, useEffect, useRef } from "react";
 import MapView, { LatLng, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { GooglePlaceDetail, GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from "react-native-google-places-autocomplete";
@@ -18,7 +18,9 @@ import * as Location from "expo-location";
 import * as geolib from 'geolib';
 import * as Speech from 'expo-speech';
 import { Audio } from 'expo-av';
-
+import {MapsResponse} from "@/interface/mapsResponse";
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import {faTrafficLight} from "@fortawesome/free-solid-svg-icons";
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
 export default function App() {
@@ -37,6 +39,7 @@ export default function App() {
   const [headingWatcher, setHeadingWatcher] = useState(null);
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
+  const [trafficLightLocation, setTrafficLightLocation] = useState<MapsResponse | null>(null);
   let lastDistanceWhenInstructionsRead = 0;
 
   useEffect(() => {
@@ -98,22 +101,18 @@ export default function App() {
     }
   };
 
+
+
   const fetchMapData = async ( intersectionId: string) => {
     try {
+      //localhost : 192.168.1.101
 
-      const response : any = await fetch(`http://localhost:3000/trafficlights/maps/${intersectionId}`,{
+      const response : any = await fetch(`http://192.168.1.101:3000/trafficlights/maps/643@49030`,{
         //No more needed as already handled in server side
-        headers: {
-          // 'Content-Type': 'application/json', // Example header
-          'Authorization': 'Basic a3J1dGFydGg0OlRVQmFuYTEyVFVCYW5hMTIh',
-          'Access-Control-Allow-Credentials': 'true',
-          'Access-Control-Allow-Origin': 'localhost:8081'
-          // 'Host': 'werkzeug.dcaiti.tu-berlin.de'// Example header
-        },
       });
       const json = await response.json();
       console.log("json",json);
-      // setData(json); update traffic data
+      setTrafficLightLocation(json)
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -342,6 +341,12 @@ export default function App() {
       >
         {origin && <Marker coordinate={origin} />}
         {destination && <Marker coordinate={destination} />}
+        {trafficLightLocation && <Marker coordinate={{latitude:trafficLightLocation.refPoint.positionWGS84.lat,
+        longitude: trafficLightLocation.refPoint.positionWGS84.lng}}>
+          <FontAwesomeIcon icon={faTrafficLight} />
+
+        </Marker>}
+
         {origin && destination && (
           <MapViewDirections
             origin={origin}

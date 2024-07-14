@@ -1,0 +1,1 @@
+This folder will only contain the maps response in json format, which will then be passed on to the server and made available in the app

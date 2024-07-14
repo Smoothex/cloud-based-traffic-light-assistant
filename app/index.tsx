@@ -54,48 +54,11 @@ export default function App() {
       });
     })();
 
-    // todo : add fetch call or SSE call impolementation currently removed or commebted out as not working
-
-    /*
-        const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights/spat?intersection=643@49030';
+        const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights';
         // const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights/spats?transport=serverSentEvents&intersection=643@49030';
         // const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights/spats?intersection=643@49030&transport=jsonEventStream';
-        fetchData(url);
-        const es = new EventSource(url, {
-          headers: {
-            Authorization: {
-              toString: function () {
-                return process.env.AUTH_TOKEN;
-              },
-            },
-          },
-        });
-        es.open()
-
-         es.addEventListener("open", (event) => {
-           console.log("Open SSE connection.",event);
-         });
-
-         es.addEventListener("message", (event) => {
-           console.log("New message event:", event);
-         });
-
-         es.addEventListener("error", (event) => {
-           if (event.type === "error") {
-             console.error("Connection error:", event);
-           } else if (event.type === "exception") {
-             console.error("Error:", event.message, event.error);
-           }
-         });
-        // Add an event listener for incoming messages
-
-
-        // Clean up the event source on component unmount
-        return () => {
-          es.removeAllEventListeners();
-          es.close();
-
-        };*/
+        fetchMapData("643@49030")
+        fetchSpatData(url, "643@49030");
 
 
   }, []);
@@ -117,25 +80,44 @@ export default function App() {
       mapRef.current?.animateToRegion(newRegion, 2000);
     }
   };
-  // const fetchData = async (url:string) => {
-  //   try {
-  //     console.warn("calloing fetch data ")
-  //     const response = await fetch(url,{
-  //       headers: {
-  //         // 'Content-Type': 'application/json', // Example header
-  //         'Authorization': 'Basic a3J1dGFydGg0OlRVQmFuYTEyVFVCYW5hMTIh',
-  //         'Access-Control-Allow-Credentials': 'true',
-  //         'Access-Control-Allow-Origin': 'localhost:8081'
-  //         // 'Host': 'werkzeug.dcaiti.tu-berlin.de'// Example header
-  //       },
-  //     });
-  //     const json = await response.json();
-  //     console.log("json",json);
-  //     // setData(json); update traffic data
-  //   } catch (error) {
-  //     console.error('Error fetching data:', error);
-  //   }
-  // };
+  const fetchSpatData = async (url:string, intersectionId: string) => {
+    try {
+      const response = await fetch(`${url}/spat?intersection=${intersectionId}`,{
+        headers: {
+          'Authorization': 'Basic a3J1dGFydGg0OlRVQmFuYTEyVFVCYW5hMTIh',
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Allow-Origin': 'localhost:8081'
+          // 'Host': 'werkzeug.dcaiti.tu-berlin.de'// Example header
+        },
+      });
+      const json = await response.json();
+      console.log("json",json);
+      // setData(json); update traffic data
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
+  const fetchMapData = async ( intersectionId: string) => {
+    try {
+
+      const response : any = await fetch(`http://localhost:3000/trafficlights/maps/${intersectionId}`,{
+        //No more needed as already handled in server side
+        headers: {
+          // 'Content-Type': 'application/json', // Example header
+          'Authorization': 'Basic a3J1dGFydGg0OlRVQmFuYTEyVFVCYW5hMTIh',
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Allow-Origin': 'localhost:8081'
+          // 'Host': 'werkzeug.dcaiti.tu-berlin.de'// Example header
+        },
+      });
+      const json = await response.json();
+      console.log("json",json);
+      // setData(json); update traffic data
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
 
   /**
    * Updates the origin or destination location based on the given details and type.

@@ -18,11 +18,12 @@ import * as Location from "expo-location";
 import * as geolib from 'geolib';
 import * as Speech from 'expo-speech';
 import { Audio } from 'expo-av';
-import {MapsResponse} from "@/interface/mapsResponse";
+import {MapsResponse} from "@/interfaces/mapsResponse";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {faTrafficLight} from "@fortawesome/free-solid-svg-icons";
+import {SpatsResponse} from "@/interfaces/spatsResponse";
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
-
+const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights';
 export default function App() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [origin, setOrigin] = useState<LatLng | null>(null);
@@ -40,6 +41,9 @@ export default function App() {
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
   const [trafficLightLocation, setTrafficLightLocation] = useState<MapsResponse | null>(null);
+  const [trafficLightStatus, setTrafficLightStatus] = useState<SpatsResponse | null>(null);
+  const [trafficLightData, setTrafficLightData] = useState([]);
+  const intervalRef = useRef(null);
   let lastDistanceWhenInstructionsRead = 0;
 
   useEffect(() => {
@@ -57,14 +61,27 @@ export default function App() {
       });
     })();
 
-        const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights';
         // const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights/spats?transport=serverSentEvents&intersection=643@49030';
         // const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights/spats?intersection=643@49030&transport=jsonEventStream';
-        fetchMapData("643@49030")
-        fetchSpatData(url, "643@49030");
 
+
+    fetchMapData("643@49030").then(()=>{
+      getTrafficLightStatusUpdate(30000)
+    })
+    //     fetchSpatData(url, "643@49030");
+    return()=>{
+      clearInterval(intervalRef.current)
+    }
 
   }, []);
+
+
+  async function getTrafficLightStatusUpdate(interval: number){
+    intervalRef.current = setInterval(()=>{
+      fetchSpatData(url,"643@49030,1496@49030").then((data: any)=>{
+      })
+    }, interval)
+  }
 
   /**
    * Moves the camera to the specified location on the map.
@@ -83,38 +100,41 @@ export default function App() {
       mapRef.current?.animateToRegion(newRegion, 2000);
     }
   };
-  const fetchSpatData = async (url:string, intersectionId: string) => {
+  const fetchSpatData = async (url:string, intersectionId: string): Promise<SpatsResponse> => {
     try {
       const response = await fetch(`${url}/spat?intersection=${intersectionId}`,{
         headers: {
           'Authorization': 'Basic a3J1dGFydGg0OlRVQmFuYTEyVFVCYW5hMTIh',
           'Access-Control-Allow-Credentials': 'true',
           'Access-Control-Allow-Origin': 'localhost:8081'
-          // 'Host': 'werkzeug.dcaiti.tu-berlin.de'// Example header
+          // 'Host': 'werkzeug.dcaiti.tu-berlin.de'// taken care through proxy
         },
       });
       const json = await response.json();
-      console.log("json",json);
-      // setData(json); update traffic data
+      console.log("traffic light status", json)
+      setTrafficLightStatus(json)
+      return json;
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching traffic status data:', error);
+      return null;
     }
   };
 
-
-
   const fetchMapData = async ( intersectionId: string) => {
     try {
-      //localhost : 192.168.1.101
+      //localhost : 192.168.1.101 ~ through terminal `ifconfig en0`
 
-      const response : any = await fetch(`http://192.168.1.101:3000/trafficlights/maps/643@49030`,{
+      const response : any = await fetch(`http://192.168.1.101:3000/trafficlights/maps/${intersectionId}`,{
         //No more needed as already handled in server side
       });
       const json = await response.json();
-      console.log("json",json);
+      console.log("traffic light location",json);
       setTrafficLightLocation(json)
+      // setTrafficLightData(prevData=> {
+      //   const index= prevData.findIndex(data => data.intersectionId === intersectionId);
+      // })
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching traffic location data:', error);
     }
   };
 
@@ -308,6 +328,7 @@ export default function App() {
     }
   }
 
+
   async function playBeepSound(intensity: number) {
     const { sound } = await Audio.Sound.createAsync(
       require('../assets/sounds/beep.mp3')
@@ -341,9 +362,16 @@ export default function App() {
       >
         {origin && <Marker coordinate={origin} />}
         {destination && <Marker coordinate={destination} />}
-        {trafficLightLocation && <Marker coordinate={{latitude:trafficLightLocation.refPoint.positionWGS84.lat,
+        {(trafficLightLocation && trafficLightStatus ) && <Marker coordinate={{latitude:trafficLightLocation.refPoint.positionWGS84.lat,
         longitude: trafficLightLocation.refPoint.positionWGS84.lng}}>
-          <FontAwesomeIcon icon={faTrafficLight} />
+          <Image
+              style={[styles.markerImage,
+                  // trafficLightStatus.intersectionStates[0].movementStates[0].movementEvents[0].phaseState == "sds"
+
+              ]}
+              source={require('../assets/images/trafficlight.png')}
+          />
+
 
         </Marker>}
 
@@ -454,4 +482,8 @@ const styles = StyleSheet.create({
   predefinedPlacesDescription: {
     color: '#1faadb',
   },
+  markerImage: {
+    width: 35,
+    height: 35,
+  }
 });

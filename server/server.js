@@ -8,8 +8,8 @@ app.options('*', cors())
 // TODO implement the cors
 
 var corsOptions = {
-    origin: 'http://localhost:8081',
-    methods:['GET'], // critical
+    origin: '*',
+    // methods:['GET','PUT','OPTION'], // critical
     optionsSuccessStatus: 200 // 204 for somebrowser is not permitted
 }
 
@@ -22,6 +22,22 @@ app.get('/', cors(corsOptions),(req, res)=>{
     res.send("Welcome to root URL of Server");
 });
 
+/**
+ * @response MAPs format for lane intersection traffic light data
+ */
+app.get('/trafficlights/maps/:intersectionId', cors(corsOptions), (req, res)=>{
+    try {
+        const {intersectionId} = req.params;
+        console.log("[server] REQUEST received for ", intersectionId)
+        const mapsResponse = require(`./data/MAP_${intersectionId}.json`);
+        res.send(mapsResponse);
+
+    } catch (error) {
+        res.status(404).send({ error: 'Data not found for id', intersectionId});
+    }
+
+})
+
 //POST request
 
 app.post('/', (req, res)=>{
@@ -29,22 +45,6 @@ app.post('/', (req, res)=>{
 
     res.send(`Welcome ${name}`);
 })
-
-app.get('/trafficlights/maps/:intersectionId', cors(corsOptions), (req, res)=>{
-    const {intersectionId} = req.params;
-    try {
-        const mapsResponse = require(`./data/MAP_${intersectionId}.json`);
-        res.send(mapsResponse);
-    } catch (error) {
-        res.status(404).send({ error: 'Data not found' });
-    }
-
-})
-
-
-
-
-
 
 app.listen(PORT, (error) =>{
         if(!error)

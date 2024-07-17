@@ -1,27 +1,30 @@
-import {Text, View, StyleSheet, SafeAreaView, Image} from "react-native";
-import { useState, useEffect, useRef } from "react";
-import MapView, { LatLng, Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { GooglePlaceDetail, GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from "react-native-google-places-autocomplete";
+import {Image, SafeAreaView, StyleSheet, Text, View} from "react-native";
+import {useEffect, useRef, useState} from "react";
+import MapView, {LatLng, Marker, PROVIDER_GOOGLE} from "react-native-maps";
+import {
+  GooglePlaceDetail,
+  GooglePlacesAutocomplete,
+  GooglePlacesAutocompleteRef
+} from "react-native-google-places-autocomplete";
 import MapViewDirections from "react-native-maps-directions";
 import Constants from "expo-constants";
 import VoiceInput from "@/components/VoiceInput";
 import NavigationButton from "@/components/NavigationButton";
-import { LocaleCodes } from "@/constants/LocaleCodes";
-import { Thresholds } from "@/constants/Thresholds";
-import { SpeechOptionsObject, SpeakingThresholds } from "@/constants/SpeechConstants";
-import { convertMinutesToHours, convertHtmlTextToPlainText } from "@/utilClasses/converterUtil";
-import { calculateInitialRegion } from "@/utilClasses/calculationsUtil";
+import {LocaleCodes} from "@/constants/LocaleCodes";
+import {Thresholds} from "@/constants/Thresholds";
+import {SpeakingThresholds, SpeechOptionsObject} from "@/constants/SpeechConstants";
+import {convertHtmlTextToPlainText, convertMinutesToHours} from "@/utilClasses/converterUtil";
+import {calculateInitialRegion} from "@/utilClasses/calculationsUtil";
 import TraceRouteButton from "@/components/TraceRouteButton";
 import MyLocationButton from "@/components/MyLocationButton";
 import StepList from "@/components/StepList";
 import * as Location from "expo-location";
 import * as geolib from 'geolib';
 import * as Speech from 'expo-speech';
-import { Audio } from 'expo-av';
+import {Audio} from 'expo-av';
 import {MapsResponse} from "@/interfaces/mapsResponse";
-import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {faTrafficLight} from "@fortawesome/free-solid-svg-icons";
 import {SpatsResponse} from "@/interfaces/spatsResponse";
+
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights';
 export default function App() {
@@ -42,7 +45,11 @@ export default function App() {
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
   const [trafficLightLocation, setTrafficLightLocation] = useState<MapsResponse | null>(null);
   const [trafficLightStatus, setTrafficLightStatus] = useState<SpatsResponse | null>(null);
-  const [trafficLightData, setTrafficLightData] = useState([]);
+  const [trafficLightData, setTrafficLightData] = useState<Array<{
+    intersectionId: string | null,
+    spatData: SpatsResponse | null,
+    mapData: MapsResponse | null
+  }>>([]);
   const intervalRef = useRef(null);
   let lastDistanceWhenInstructionsRead = 0;
 
@@ -66,7 +73,8 @@ export default function App() {
 
 
     fetchMapData("643@49030").then(()=>{
-      getTrafficLightStatusUpdate(30000)
+      // getTrafficLightStatusUpdate(3000)
+      fetchSpatData(url, "643@49030");
     })
     //     fetchSpatData(url, "643@49030");
     return()=>{
@@ -78,7 +86,8 @@ export default function App() {
 
   async function getTrafficLightStatusUpdate(interval: number){
     intervalRef.current = setInterval(()=>{
-      fetchSpatData(url,"643@49030,1496@49030").then((data: any)=>{
+      fetchSpatData(url,"643@49030").then((data: any)=>{
+        console.warn("traffic light data", trafficLightData)
       })
     }, interval)
   }
@@ -112,13 +121,26 @@ export default function App() {
       });
       const json = await response.json();
       console.log("traffic light status", json)
+      const date = getLocalTimestamp();
+
+      // console.warn(new Date(date))
+      // console.log("from json", new Date(json.timestamp))
       setTrafficLightStatus(json)
+      await updateTrafficLightData(intersectionId,json,null)
       return json;
     } catch (error) {
       console.error('Error fetching traffic status data:', error);
       return null;
     }
   };
+
+  function getLocalTimestamp(){
+    // console.error("date", date);
+    // const timestamp = new Date(date)
+    // const loc =  timestamp.toLocaleString("en-US", {timeZone: "Europe/Berlin"})
+
+    return Date.now()
+  }
 
   const fetchMapData = async ( intersectionId: string) => {
     try {
@@ -130,13 +152,37 @@ export default function App() {
       const json = await response.json();
       console.log("traffic light location",json);
       setTrafficLightLocation(json)
-      // setTrafficLightData(prevData=> {
-      //   const index= prevData.findIndex(data => data.intersectionId === intersectionId);
-      // })
+      await updateTrafficLightData(intersectionId, null, json);
     } catch (error) {
       console.error('Error fetching traffic location data:', error);
     }
   };
+  const updateTrafficLightData = async (intersectionId: string, spatData: SpatsResponse | null, mapData: any | null) => {
+    const idArray = intersectionId.split(',').map(id => id.trim());
+
+    setTrafficLightData(prevData => {
+      let updatedData = [...prevData];
+
+      idArray.forEach(intersectionId => {
+        const existingIndex = updatedData.findIndex(item => item.intersectionId === intersectionId);
+
+        if (existingIndex !== -1) {
+          // Update existing object
+          updatedData[existingIndex] = {
+            ...updatedData[existingIndex],
+            spatData: spatData || updatedData[existingIndex].spatData,
+            mapData: mapData || updatedData[existingIndex].mapData
+          };
+        } else {
+          // Add new object
+          updatedData.push({ intersectionId, spatData, mapData });
+        }
+      });
+
+      return updatedData;
+    });
+  }
+
 
   /**
    * Updates the origin or destination location based on the given details and type.

@@ -123,7 +123,13 @@ export default function App() {
       console.log("traffic light status", json)
       const date = getLocalTimestamp();
 
-      // console.warn(new Date(date))
+      console.warn(new Date(date).toLocaleString())
+
+      //check the unit of other timestamp in tenth of second ~ the unit is wrong
+      const dateNext = date+(json.intersectionStates[0].movementStates[0].movementEvents[0].timeChange.maxEndTime)
+      console.error("traffic light status", json.intersectionStates[0].movementStates[0].movementEvents[0].phaseState)
+      console.error("traffic light phase", new Date(dateNext).toLocaleString())
+
       // console.log("from json", new Date(json.timestamp))
       setTrafficLightStatus(json)
       await updateTrafficLightData(intersectionId,json,null)
@@ -395,6 +401,20 @@ export default function App() {
   function speakOffRouteMessage() {
     Speech.speak('Sie sind möglicherweise vom Weg abgekommen.', SpeechOptionsObject);
   }
+  function getLightColor(data: SpatsResponse, signalGroupId : number){
+    console.log(data);
+    const phase =data?.intersectionStates[0].movementStates[0].movementEvents[0].phaseState;
+    if(phase =="PROTECTED_MOVEMENT_ALLOWED"){
+      return styles.green
+
+    }else if(phase =="PROTECTED_CLEARANCE" || phase =="PRE_MOVEMENT"){
+      return styles.yellow
+
+    }else{
+      // red light
+      return styles.red
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -408,18 +428,26 @@ export default function App() {
       >
         {origin && <Marker coordinate={origin} />}
         {destination && <Marker coordinate={destination} />}
-        {(trafficLightLocation && trafficLightStatus ) && <Marker coordinate={{latitude:trafficLightLocation.refPoint.positionWGS84.lat,
-        longitude: trafficLightLocation.refPoint.positionWGS84.lng}}>
-          <Image
-              style={[styles.markerImage,
-                  // trafficLightStatus.intersectionStates[0].movementStates[0].movementEvents[0].phaseState == "sds"
 
-              ]}
-              source={require('../assets/images/trafficlight.png')}
-          />
+        {trafficLightData.map((data, index)=>(
+
+            data.mapData.laneSetConverted.map((data, internalIndex)=>(
+                <Marker coordinate={{latitude:data.nodeListConverted[0].positionWGS84.lat,
+                  longitude: data.nodeListConverted[0].positionWGS84.lng}}>
+                  <Image
+                      style={[styles.markerImage,getLightColor(trafficLightData[index].spatData
+                      ,data.connectsToConverted[0].signalGroup)
+
+                        // trafficLightStatus.intersectionStates[0].movementStates[0].movementEvents[0].phaseState == "sds"
+                      ]}
+                      source={require('../assets/images/trafficlight.png')}
+                  />
+                </Marker>
+
+            ))
 
 
-        </Marker>}
+        ))}
 
         {origin && destination && (
           <MapViewDirections
@@ -531,5 +559,15 @@ const styles = StyleSheet.create({
   markerImage: {
     width: 35,
     height: 35,
-  }
+  } ,
+  green: {
+    backgroundColor: 'green',
+  },
+  red: {
+    backgroundColor:"red"
+  },
+  yellow: {
+    backgroundColor: "yellow"
+  },
+
 });

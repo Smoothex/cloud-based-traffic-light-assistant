@@ -209,14 +209,12 @@ export default function App() {
 
   function updateTextInputOnEndOfSpeaking(result: string) {
     autoCompleteRef.current.clear();
-    autoCompleteRef.current.blur();
-    autoCompleteRef.current.focus();
 
     if (!result.split(' ').includes('Berlin')) {
       result = result.concat(', Berlin');
     }
 
-    autoCompleteRef.current.setAddressText(result);
+    autoCompleteRef.current.setAddressTextAndQuery(result);
   }
 
   function playOnError(err: Error) {
@@ -313,7 +311,6 @@ export default function App() {
       <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
           ref={autoCompleteRef}
-          debounce={300}
           placeholder='Search for your destination'
           fetchDetails={true}
           enableHighAccuracyLocation

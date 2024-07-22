@@ -5,44 +5,51 @@
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
 # Prerequisites
-- npm version: ~10.8.1
+- npm version: ~10.8.2
 - Node.js version: ~21.7.3
 
 # Changes in libraries
 1. react-native-google-places-autocomplete
-   - Go to node_modules and find the library
-   - In GooglePlacesAutocomplete.js go to line 866 and add the following code:
+   - Go to node_modules and find the library.
+   - In GooglePlacesAutocomplete.d.ts go to line 437 and add the following code:
    ```
-   if (stateText?.length > 0) {
-      _handleChangeText(stateText);
-   }
+   setAddressTextAndQuery(address: string): void;
    ```
-   - This allows for results to be queried when text is input by voice
+   ![screenshot](assets/images/changeInLibDTs.png)
+   - In GooglePlacesAutocomplete.js go to line 185 and add the following code:
+   ```
+   setAddressTextAndQuery: (address) => {
+      _handleChangeText(address);
+      setListViewDisplayed(true); 
+   },
+   ```
+   ![screenshot](assets/images/changeInLibTs.png)
+   - This allows for results to be queried when the user uses text input by voice.
 
 ## How to build the app using EAS CLI
 
 1. In the terminal install eas-cli using `npm install -g eas-cli`
-2. Create an account for [Expo Dev](expo.dev)
-3. Log in with your credentials using `eas login`
-4. Configure your project using `eas build:configure`, which creates an 
+1. Create an account for [Expo Dev](expo.dev)
+1. Log in with your credentials using `eas login`
+1. Configure your project using `eas build:configure`, which creates an 
 `eas.json` file with configs
-5. Either build the `android` folder locally with  `npx expo prebuild` or skip this step because it happens automatically in the pipeline
-6. Add the environmental variables from your `.env` file in Secrets of your Expo project on the Expo dev page in order to build the app correctly
-7. Start a building pipeline with `eas build -p android --profile development`
-8. After the pipeline succeeds you can download the <em>.apk</em> on your file via the link from your terminal or you can find it in Builds on the Expo dev page
-9. After installing the app on your physical device you have to start a server with `npx expo start`
+1. Either build the `android` folder locally with  `npx expo prebuild` or skip this step because it happens automatically in the pipeline
+1. Add the environmental variables from your `.env` file in Secrets of your Expo project on the Expo dev page in order to build the app correctly
+1. Start a building pipeline with `eas build -p android --profile development`
+1. After the pipeline succeeds you can download the <em>.apk</em> on your file via the link from your terminal or you can find it in Builds on the Expo dev page
+1. After installing the app on your physical device you have to start a server with `npx expo start`
 
 ## How to run the app using Expo Go
 
 1. Install Expo Go on your physical device from [Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent&pcampaignid=web_share) for Android or [App Store](https://apps.apple.com/us/app/expo-go/id982107779) for iOS.
 
-2. Install dependencies by running `npm install` in the terminal.
+1. Install dependencies by running `npm install` in the terminal.
 
-3. Set the `EXPO_PUBLIC_GOOGLE_API_KEY` environment in a .env file. This project uses Google APIs, so you need to configure an API Key in your [Google Cloud](https://console.cloud.google.com) account.
+1. Set the `EXPO_PUBLIC_GOOGLE_API_KEY` environment in a .env file. This project uses Google APIs, so you need to configure an API Key in your [Google Cloud](https://console.cloud.google.com) account.
 
-4. Run `npm start` to start the app.
+1. Run `npm start` to start the app.
 
-5. On your device, open Expo Go and scan the QR code to connect to the development server. When the project starts loading, you see this in the terminal, see the gif below.
+1. On your device, open Expo Go and scan the QR code to connect to the development server. When the project starts loading, you see this in the terminal, see the gif below.
    
    ![demo-ezgif com-video-to-gif-converter](https://github.com/Smoothex/cloud-based-traffic-light-assistant/assets/79105432/3b2bed45-0a5d-4f7a-a3a0-624c75e14d8e)
 

@@ -56,5 +56,6 @@ Unfortunately, Expo secrets can only be accessed by EAS cloud builds, and the lo
 
 
 ## Express server
+To start the Express server, use the npm start command. This command runs the application in the Metro Builder. By default, the server listens on localhost:3000, so ensure that no other application is using this port. For further configuration, have a look at the[ official express docs](https://expressjs.com/en/5x/api.html)
 
-The express server starts with the `npm start` command to run the application in Metro Builder.
+To ensure accessibility by the server, place the files in the './server/data/*' directory. These files, containing Maps data, should follow the naming convention MAPS_<identifier>.json (e.g., MAPS_643@49030.json) and must be a json files.

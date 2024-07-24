@@ -26,6 +26,7 @@ import {MapsResponse} from "@/interfaces/mapsResponse";
 import {SpatsResponse} from "@/interfaces/spatsResponse";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
+const auth = process.env.AUTH_TOKEN;
 const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights';
 export default function App() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -68,15 +69,11 @@ export default function App() {
       });
     })();
 
-        // const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights/spats?transport=serverSentEvents&intersection=643@49030';
-        // const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights/spats?intersection=643@49030&transport=jsonEventStream';
-
-
     fetchMapData("643@49030").then(()=>{
-      // getTrafficLightStatusUpdate(3000)
-      fetchSpatData(url, "643@49030");
+      getTrafficLightStatusUpdate(2000)
+
+      // fetchSpatData(url, "643@49030"); // for testing purpose
     })
-    //     fetchSpatData(url, "643@49030");
     return()=>{
       clearInterval(intervalRef.current)
     }
@@ -87,7 +84,7 @@ export default function App() {
   async function getTrafficLightStatusUpdate(interval: number){
     intervalRef.current = setInterval(()=>{
       fetchSpatData(url,"643@49030").then((data: any)=>{
-        console.warn("traffic light data", trafficLightData)
+        // console.warn("traffic light data", trafficLightData)
       })
     }, interval)
   }
@@ -116,21 +113,11 @@ export default function App() {
           'Authorization': 'Basic a3J1dGFydGg0OlRVQmFuYTEyVFVCYW5hMTIh',
           'Access-Control-Allow-Credentials': 'true',
           'Access-Control-Allow-Origin': 'localhost:8081'
-          // 'Host': 'werkzeug.dcaiti.tu-berlin.de'// taken care through proxy
         },
       });
       const json = await response.json();
-      console.log("traffic light status", json)
+      // console.log("traffic light status", json)
       const date = getLocalTimestamp();
-
-      console.warn(new Date(date).toLocaleString())
-
-      //check the unit of other timestamp in tenth of second ~ the unit is wrong
-      const dateNext = date+(json.intersectionStates[0].movementStates[0].movementEvents[0].timeChange.maxEndTime)
-      console.error("traffic light status", json.intersectionStates[0].movementStates[0].movementEvents[0].phaseState)
-      console.error("traffic light phase", new Date(dateNext).toLocaleString())
-
-      // console.log("from json", new Date(json.timestamp))
       setTrafficLightStatus(json)
       await updateTrafficLightData(intersectionId,json,null)
       return json;
@@ -141,22 +128,18 @@ export default function App() {
   };
 
   function getLocalTimestamp(){
-    // console.error("date", date);
-    // const timestamp = new Date(date)
-    // const loc =  timestamp.toLocaleString("en-US", {timeZone: "Europe/Berlin"})
-
     return Date.now()
   }
 
   const fetchMapData = async ( intersectionId: string) => {
     try {
-      //localhost : 192.168.1.101 ~ through terminal `ifconfig en0`
+      //localhost : 192.168.1.101 ~ through terminal `ifconfig en0` wifi needs to be on
 
       const response : any = await fetch(`http://192.168.1.101:3000/trafficlights/maps/${intersectionId}`,{
         //No more needed as already handled in server side
       });
       const json = await response.json();
-      console.log("traffic light location",json);
+      // console.log("traffic light location",json);
       setTrafficLightLocation(json)
       await updateTrafficLightData(intersectionId, null, json);
     } catch (error) {
@@ -431,14 +414,12 @@ export default function App() {
 
         {trafficLightData.map((data, index)=>(
 
-            data.mapData.laneSetConverted.map((data, internalIndex)=>(
+            data.mapData?.laneSetConverted?.map((data, internalIndex)=>(
                 <Marker coordinate={{latitude:data.nodeListConverted[0].positionWGS84.lat,
-                  longitude: data.nodeListConverted[0].positionWGS84.lng}}>
+                  longitude: data.nodeListConverted[0].positionWGS84.lng}} >
                   <Image
                       style={[styles.markerImage,getLightColor(trafficLightData[index].spatData
                       ,data.connectsToConverted[0].signalGroup)
-
-                        // trafficLightStatus.intersectionStates[0].movementStates[0].movementEvents[0].phaseState == "sds"
                       ]}
                       source={require('../assets/images/trafficlight.png')}
                   />

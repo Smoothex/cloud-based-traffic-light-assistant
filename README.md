@@ -59,3 +59,17 @@ Unfortunately, Expo secrets can only be accessed by EAS cloud builds, and the lo
 To start the Express server, use the npm start command. This command runs the application in the Metro Builder. By default, the server listens on localhost:3000, so ensure that no other application is using this port. For further configuration, have a look at the[ official express docs](https://expressjs.com/en/5x/api.html)
 
 To ensure accessibility by the server, place the files in the './server/data/*' directory. These files, containing Maps data, should follow the naming convention MAPS_<identifier>.json (e.g., MAPS_643@49030.json) and must be a json files.
+
+
+### Troubleshooting
+
+If the application doesn't have access to our local express server , first check if the wifi is switched on. 
+
+Next for mac or linix users, execute `ifconfig en0` on terminal , which gives you the IP address assigned to the interface. This inet address '192.168.1.101' needs to be copied to the ./app/index.tsx in line 138.
+
+#### TODO
+-[] add this inet address in separate config file
+
+![Screenshot 2024-07-24 at 09 05 48](https://github.com/user-attachments/assets/2ee6fa58-2999-4bca-9f8d-ab1b1a077508)
+
+

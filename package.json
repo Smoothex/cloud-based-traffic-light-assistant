@@ -2,14 +2,16 @@
   "name": "cloud-based-traffic-light-assistant",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "proxy": "http://localhost:3000",
   "scripts": {
-    "start": "expo start",
+    "start": "node ./server/server.js & expo start ",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "postinstall": "node ./map-web-fix.js "
   },
   "jest": {
     "preset": "jest-expo"
@@ -17,9 +19,15 @@
   "dependencies": {
     "@expo/config-plugins": "^8.0.8",
     "@expo/vector-icons": "^14.0.0",
+    "@fortawesome/fontawesome-svg-core": "^6.5.2",
+    "@fortawesome/free-brands-svg-icons": "^6.5.2",
+    "@fortawesome/free-regular-svg-icons": "^6.5.2",
+    "@fortawesome/free-solid-svg-icons": "^6.5.2",
+    "@fortawesome/react-fontawesome": "^0.2.2",
     "@react-native-vector-icons/ionicons": "^7.3.1-alpha.9",
     "@react-navigation/native": "^6.1.17",
     "@wdragon/react-native-voice": "^3.3.11",
+    "cors": "^2.8.5",
     "expo": "^51.0.20",
     "expo-av": "~14.0.6",
     "expo-constants": "~16.0.2",
@@ -34,6 +42,7 @@
     "expo-status-bar": "~1.12.1",
     "expo-system-ui": "~3.0.7",
     "expo-web-browser": "~13.0.3",
+    "express": "^4.19.2",
     "geolib": "^3.3.4",
     "react": "18.2.0",
     "react-dom": "18.2.0",

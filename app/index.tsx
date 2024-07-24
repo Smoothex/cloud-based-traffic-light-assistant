@@ -1,26 +1,33 @@
-import { Text, View, StyleSheet, SafeAreaView } from "react-native";
-import { useState, useEffect, useRef } from "react";
-import MapView, { LatLng, Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { GooglePlaceDetail, GooglePlacesAutocomplete, GooglePlacesAutocompleteRef } from "react-native-google-places-autocomplete";
+import {Image, SafeAreaView, StyleSheet, Text, View} from "react-native";
+import {useEffect, useRef, useState} from "react";
+import MapView, {LatLng, Marker, PROVIDER_GOOGLE} from "react-native-maps";
+import {
+  GooglePlaceDetail,
+  GooglePlacesAutocomplete,
+  GooglePlacesAutocompleteRef
+} from "react-native-google-places-autocomplete";
 import MapViewDirections from "react-native-maps-directions";
 import Constants from "expo-constants";
 import VoiceInput from "@/components/VoiceInput";
 import NavigationButton from "@/components/NavigationButton";
-import { LocaleCodes } from "@/constants/LocaleCodes";
-import { Thresholds } from "@/constants/Thresholds";
-import { SpeechOptionsObject, SpeakingThresholds } from "@/constants/SpeechConstants";
-import { convertMinutesToHours, convertHtmlTextToPlainText } from "@/utilClasses/converterUtil";
-import { calculateInitialRegion } from "@/utilClasses/calculationsUtil";
+import {LocaleCodes} from "@/constants/LocaleCodes";
+import {Thresholds} from "@/constants/Thresholds";
+import {SpeakingThresholds, SpeechOptionsObject} from "@/constants/SpeechConstants";
+import {convertHtmlTextToPlainText, convertMinutesToHours} from "@/utilClasses/converterUtil";
+import {calculateInitialRegion} from "@/utilClasses/calculationsUtil";
 import TraceRouteButton from "@/components/TraceRouteButton";
 import MyLocationButton from "@/components/MyLocationButton";
 import StepList from "@/components/StepList";
 import * as Location from "expo-location";
 import * as geolib from 'geolib';
 import * as Speech from 'expo-speech';
-import { Audio } from 'expo-av';
+import {Audio} from 'expo-av';
+import {MapsResponse} from "@/interfaces/mapsResponse";
+import {SpatsResponse} from "@/interfaces/spatsResponse";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
-
+const auth = process.env.AUTH_TOKEN;
+const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights';
 export default function App() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [origin, setOrigin] = useState<LatLng | null>(null);
@@ -37,6 +44,14 @@ export default function App() {
   const [headingWatcher, setHeadingWatcher] = useState(null);
   const mapRef = useRef<MapView>(null);
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
+  const [trafficLightLocation, setTrafficLightLocation] = useState<MapsResponse | null>(null);
+  const [trafficLightStatus, setTrafficLightStatus] = useState<SpatsResponse | null>(null);
+  const [trafficLightData, setTrafficLightData] = useState<Array<{
+    intersectionId: string | null,
+    spatData: SpatsResponse | null,
+    mapData: MapsResponse | null
+  }>>([]);
+  const intervalRef = useRef(null);
   let lastDistanceWhenInstructionsRead = 0;
 
   useEffect(() => {
@@ -53,7 +68,26 @@ export default function App() {
         longitude: location.coords.longitude
       });
     })();
+
+    fetchMapData("643@49030").then(()=>{
+      getTrafficLightStatusUpdate(2000)
+
+      // fetchSpatData(url, "643@49030"); // for testing purpose
+    })
+    return()=>{
+      clearInterval(intervalRef.current)
+    }
+
   }, []);
+
+
+  async function getTrafficLightStatusUpdate(interval: number){
+    intervalRef.current = setInterval(()=>{
+      fetchSpatData(url,"643@49030").then((data: any)=>{
+        // console.warn("traffic light data", trafficLightData)
+      })
+    }, interval)
+  }
 
   /**
    * Moves the camera to the specified location on the map.
@@ -72,6 +106,72 @@ export default function App() {
       mapRef.current?.animateToRegion(newRegion, 2000);
     }
   };
+  const fetchSpatData = async (url:string, intersectionId: string): Promise<SpatsResponse> => {
+    try {
+      const response = await fetch(`${url}/spat?intersection=${intersectionId}`,{
+        headers: {
+          'Authorization': 'Basic a3J1dGFydGg0OlRVQmFuYTEyVFVCYW5hMTIh',
+          'Access-Control-Allow-Credentials': 'true',
+          'Access-Control-Allow-Origin': 'localhost:8081'
+        },
+      });
+      const json = await response.json();
+      // console.log("traffic light status", json)
+      const date = getLocalTimestamp();
+      setTrafficLightStatus(json)
+      await updateTrafficLightData(intersectionId,json,null)
+      return json;
+    } catch (error) {
+      console.error('Error fetching traffic status data:', error);
+      return null;
+    }
+  };
+
+  function getLocalTimestamp(){
+    return Date.now()
+  }
+
+  const fetchMapData = async ( intersectionId: string) => {
+    try {
+      //localhost : 192.168.1.101 ~ through terminal `ifconfig en0` wifi needs to be on
+
+      const response : any = await fetch(`http://192.168.1.101:3000/trafficlights/maps/${intersectionId}`,{
+        //No more needed as already handled in server side
+      });
+      const json = await response.json();
+      // console.log("traffic light location",json);
+      setTrafficLightLocation(json)
+      await updateTrafficLightData(intersectionId, null, json);
+    } catch (error) {
+      console.error('Error fetching traffic location data:', error);
+    }
+  };
+  const updateTrafficLightData = async (intersectionId: string, spatData: SpatsResponse | null, mapData: any | null) => {
+    const idArray = intersectionId.split(',').map(id => id.trim());
+
+    setTrafficLightData(prevData => {
+      let updatedData = [...prevData];
+
+      idArray.forEach(intersectionId => {
+        const existingIndex = updatedData.findIndex(item => item.intersectionId === intersectionId);
+
+        if (existingIndex !== -1) {
+          // Update existing object
+          updatedData[existingIndex] = {
+            ...updatedData[existingIndex],
+            spatData: spatData || updatedData[existingIndex].spatData,
+            mapData: mapData || updatedData[existingIndex].mapData
+          };
+        } else {
+          // Add new object
+          updatedData.push({ intersectionId, spatData, mapData });
+        }
+      });
+
+      return updatedData;
+    });
+  }
+
 
   /**
    * Updates the origin or destination location based on the given details and type.
@@ -263,6 +363,7 @@ export default function App() {
     }
   }
 
+
   async function playBeepSound(intensity: number) {
     const { sound } = await Audio.Sound.createAsync(
       require('../assets/sounds/beep.mp3')
@@ -283,6 +384,20 @@ export default function App() {
   function speakOffRouteMessage() {
     Speech.speak('Sie sind möglicherweise vom Weg abgekommen.', SpeechOptionsObject);
   }
+  function getLightColor(data: SpatsResponse, signalGroupId : number){
+    console.log(data);
+    const phase =data?.intersectionStates[0].movementStates[0].movementEvents[0].phaseState;
+    if(phase =="PROTECTED_MOVEMENT_ALLOWED"){
+      return styles.green
+
+    }else if(phase =="PROTECTED_CLEARANCE" || phase =="PRE_MOVEMENT"){
+      return styles.yellow
+
+    }else{
+      // red light
+      return styles.red
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -296,6 +411,25 @@ export default function App() {
       >
         {origin && <Marker coordinate={origin} />}
         {destination && <Marker coordinate={destination} />}
+
+        {trafficLightData.map((data, index)=>(
+
+            data.mapData?.laneSetConverted?.map((data, internalIndex)=>(
+                <Marker coordinate={{latitude:data.nodeListConverted[0].positionWGS84.lat,
+                  longitude: data.nodeListConverted[0].positionWGS84.lng}} >
+                  <Image
+                      style={[styles.markerImage,getLightColor(trafficLightData[index].spatData
+                      ,data.connectsToConverted[0].signalGroup)
+                      ]}
+                      source={require('../assets/images/trafficlight.png')}
+                  />
+                </Marker>
+
+            ))
+
+
+        ))}
+
         {origin && destination && (
           <MapViewDirections
             origin={origin}
@@ -403,4 +537,18 @@ const styles = StyleSheet.create({
   predefinedPlacesDescription: {
     color: '#1faadb',
   },
+  markerImage: {
+    width: 35,
+    height: 35,
+  } ,
+  green: {
+    backgroundColor: 'green',
+  },
+  red: {
+    backgroundColor:"red"
+  },
+  yellow: {
+    backgroundColor: "yellow"
+  },
+
 });

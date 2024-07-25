@@ -39,7 +39,6 @@ app.get('/trafficlights/maps/:intersectionId', cors(corsOptions), (req, res)=>{
 })
 
 //POST request
-
 app.post('/', (req, res)=>{
     const {name} = req.body;
 

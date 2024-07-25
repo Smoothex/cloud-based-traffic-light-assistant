@@ -24,7 +24,7 @@ import * as geolib from 'geolib';
 import * as Speech from 'expo-speech';
 import {Audio} from 'expo-av';
 import {MapsResponse} from "@/interfaces/mapsResponse";
-import {SpatsResponse} from "@/interfaces/spatsResponse";
+import {SpatsResponse, TrafficLightData} from "@/interfaces/spatsResponse";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 const auth = process.env.TU_USER_AUTH_TOKEN;
@@ -50,11 +50,7 @@ export default function App() {
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
   const [trafficLightLocation, setTrafficLightLocation] = useState<MapsResponse | null>(null);
   const [trafficLightStatus, setTrafficLightStatus] = useState<SpatsResponse | null>(null);
-  const [trafficLightData, setTrafficLightData] = useState<Array<{
-    intersectionId: string | null,
-    spatData: SpatsResponse | null,
-    mapData: MapsResponse | null
-  }>>([]);
+  const [trafficLightData, setTrafficLightData] = useState<TrafficLightData[]>([]);
   const intervalRef = useRef(null);
   let lastDistanceWhenInstructionsRead = 0;
 
@@ -85,8 +81,8 @@ export default function App() {
 
   async function getTrafficLightStatusUpdate(interval: number){
     intervalRef.current = setInterval(()=>{
-      fetchSpatData(TRAFFIC_LIGHT_TOOL_URL, INTERSECTION_REGION_ID_STRING).then((data: any)=>{
-        // console.warn("traffic light data", trafficLightData)
+      fetchSpatData(INTERSECTION_REGION_ID_STRING).then((fetchedTrafficLightData: any)=>{
+        // console.warn("traffic light data", fetchedTrafficLightData)
       })
     }, interval)
   }
@@ -109,7 +105,7 @@ export default function App() {
     }
   };
 
-  const fetchSpatData = async (url: string, intersectionId: string): Promise<SpatsResponse> => {
+  const fetchSpatData = async (intersectionId: string): Promise<SpatsResponse> => {
     try {
       const response = await fetch(`${SPAT_URL}${intersectionId}`,
         {
@@ -136,7 +132,7 @@ export default function App() {
     try {
       //localhost : 192.168.1.101 ~ through terminal `ifconfig en0` wifi needs to be on
 
-      const response : any = await fetch(`http://192.168.1.101:3000/trafficlights/maps/${intersectionId}`,{
+      const response : any = await fetch(`http://192.168.1.101:3000/trafficlights/maps/${intersectionId}`, {
         //No more needed as already handled in server side
       });
       const json = await response.json();
@@ -147,6 +143,7 @@ export default function App() {
       console.error('Error fetching traffic location data:', error);
     }
   };
+
   const updateTrafficLightData = async (intersectionId: string, spatData: SpatsResponse | null, mapData: any | null) => {
     const idArray = intersectionId.split(',').map(id => id.trim());
 
@@ -172,7 +169,6 @@ export default function App() {
       return updatedData;
     });
   }
-
 
   /**
    * Updates the origin or destination location based on the given details and type.
@@ -227,6 +223,7 @@ export default function App() {
       return;
     }
 
+    Speech.speak('Navigation wurde gestartet.', SpeechOptionsObject);
     moveToLocation(origin)
     setIsNavigationActive(true);
 
@@ -246,7 +243,6 @@ export default function App() {
           moveToLocation(userLocation);
 
           if (!!steps.length) {
-            console.log("All steps: ", steps);
             const nextStep: SingleStep = steps[0]; // Get the next step to display
             console.log("Next step: ", nextStep);
 
@@ -305,6 +301,7 @@ export default function App() {
     }
 
     Speech.stop();
+    Speech.speak('Navigation wurde gestoppt.', SpeechOptionsObject);
     console.log('Tracking stopped');
   }
 
@@ -385,12 +382,12 @@ export default function App() {
 
   function getLightColor(data: SpatsResponse, signalGroupId : number) {
     console.log(data);
-    const phase =data?.intersectionStates[0].movementStates[0].movementEvents[0].phaseState;
+    const phase = data?.intersectionStates[0].movementStates[0].movementEvents[0].phaseState;
 
-    if (phase =="PROTECTED_MOVEMENT_ALLOWED") {
+    if (phase == "PROTECTED_MOVEMENT_ALLOWED") {
       return styles.green;
 
-    } else if(phase =="PROTECTED_CLEARANCE" || phase =="PRE_MOVEMENT") {
+    } else if(phase == "PROTECTED_CLEARANCE" || phase == "PRE_MOVEMENT") {
       return styles.yellow;
 
     } else {
@@ -442,7 +439,7 @@ export default function App() {
       <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
           ref={autoCompleteRef}
-          placeholder='Search for your destination'
+          placeholder='Richtung eingeben'
           fetchDetails={true}
           enableHighAccuracyLocation
           keepResultsAfterBlur={false}

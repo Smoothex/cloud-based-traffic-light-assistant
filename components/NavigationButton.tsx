@@ -13,7 +13,7 @@ export default function NavigationButton({ startNavigation, stopNavigation, orig
     return (
         <TouchableOpacity style={isNavigationActive ? styles.stopButton : styles.startButton} 
         onPress={isNavigationActive ? stopNavigation : startNavigation} disabled={!origin || !destination}>
-            <Text style={styles.navigationButtonText}>{isNavigationActive ? 'Stop navigation' : 'Start navigation'}</Text>
+            <Text style={styles.navigationButtonText}>{isNavigationActive ? 'Navigation beenden' : 'Navigation starten'}</Text>
         </TouchableOpacity>
     );
 }

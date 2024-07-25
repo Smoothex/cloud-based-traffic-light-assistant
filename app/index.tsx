@@ -14,7 +14,7 @@ import {LocaleCodes} from "@/constants/LocaleCodes";
 import {Thresholds} from "@/constants/Thresholds";
 import {SpeakingThresholds, SpeechOptionsObject} from "@/constants/SpeechConstants";
 import {convertHtmlTextToPlainText, convertMinutesToHours} from "@/utilClasses/converterUtil";
-import { getLocalTimestamp } from "@/utilClasses/getMethodsUtil";
+import {getLocalTimestamp} from "@/utilClasses/getMethodsUtil";
 import {calculateInitialRegion} from "@/utilClasses/calculationsUtil";
 import TraceRouteButton from "@/components/TraceRouteButton";
 import MyLocationButton from "@/components/MyLocationButton";
@@ -27,10 +27,12 @@ import {MapsResponse} from "@/interfaces/mapsResponse";
 import {SpatsResponse, TrafficLightData} from "@/interfaces/spatsResponse";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
-const auth = process.env.TU_USER_AUTH_TOKEN;
+const TU_USER_AUTH_TOKEN = process.env.EXPO_PUBLIC_TU_USER_AUTH_TOKEN;
 const TRAFFIC_LIGHT_TOOL_URL = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights';
 const SPAT_URL = TRAFFIC_LIGHT_TOOL_URL + '/spat?intersection=';
-const INTERSECTION_REGION_ID_STRING = '643@49030'; 
+const INTERSECTION_REGION_ID_STRING = '643@49030';
+const LOCAL_IP_ADDRESS = '192.168.0.104'; // Read the documentation to find how to get your local IP address
+const PROXY_SERVER_PORT = '3000';
 
 export default function App() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -56,6 +58,10 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
+      if (GOOGLE_API_KEY.length === 0) {
+        console.warn('Your GOOGLE_API_KEY is empty! Please check your .env file!');
+      }
+
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         return;
@@ -82,7 +88,7 @@ export default function App() {
   async function getTrafficLightStatusUpdate(interval: number){
     intervalRef.current = setInterval(()=>{
       fetchSpatData(INTERSECTION_REGION_ID_STRING).then((fetchedTrafficLightData: any)=>{
-        // console.warn("traffic light data", fetchedTrafficLightData)
+        // console.warn("traffic light data", fetchedTrafficLightData)  //TODO do we need it?
       })
     }, interval)
   }
@@ -107,18 +113,23 @@ export default function App() {
 
   const fetchSpatData = async (intersectionId: string): Promise<SpatsResponse> => {
     try {
+      if (TU_USER_AUTH_TOKEN.length === 0) {
+        console.warn('Your TU_USER_AUTH_TOKEN is empty! Please check your .env file!');
+      }
+
       const response = await fetch(`${SPAT_URL}${intersectionId}`,
         {
           headers: {
-            'Authorization': 'Basic a3J1dGFydGg0OlRVQmFuYTEyVFVCYW5hMTIh',
+            'Authorization': `Basic ${TU_USER_AUTH_TOKEN}`,
             'Access-Control-Allow-Credentials': 'true',
             'Access-Control-Allow-Origin': 'localhost:8081'
           },
         }
       );
+
       const json = await response.json();
-      // console.log("traffic light status", json);
-      const date = getLocalTimestamp();
+      const date = getLocalTimestamp(); //TODO do we need it?
+
       setTrafficLightStatus(json);
       await updateTrafficLightData(intersectionId, json, null);
       return json;
@@ -131,12 +142,15 @@ export default function App() {
   const fetchMapData = async (intersectionId: string) => {
     try {
       //localhost : 192.168.1.101 ~ through terminal `ifconfig en0` wifi needs to be on
+      if (LOCAL_IP_ADDRESS.includes('X') || LOCAL_IP_ADDRESS.length === 0) {
+        console.warn('Your LOCAL_IP_ADDRESS variable is incorrect or empty! See documentation for how to get it!');
+      }
 
-      const response : any = await fetch(`http://192.168.1.101:3000/trafficlights/maps/${intersectionId}`, {
+      const response : any = await fetch(`http://${LOCAL_IP_ADDRESS}:${PROXY_SERVER_PORT}/trafficlights/maps/${intersectionId}`, {
         //No more needed as already handled in server side
       });
+
       const json = await response.json();
-      // console.log("traffic light location", json);
       setTrafficLightLocation(json);
       await updateTrafficLightData(intersectionId, null, json);
     } catch (error) {
@@ -244,7 +258,7 @@ export default function App() {
 
           if (!!steps.length) {
             const nextStep: SingleStep = steps[0]; // Get the next step to display
-            console.log("Next step: ", nextStep);
+            console.log("Next step:", nextStep);
 
             const stepLocation: LatLng = {
               latitude: nextStep.end_location.lat,
@@ -280,7 +294,7 @@ export default function App() {
         });
       console.log('Tracking started');
     } catch (error) {
-      console.error('Error on starting navigation: ', error);
+      console.error('Error on starting navigation:', error);
     }
   };
 
@@ -301,7 +315,7 @@ export default function App() {
     }
 
     Speech.stop();
-    Speech.speak('Navigation wurde gestoppt.', SpeechOptionsObject);
+    Speech.speak('Navigation wurde beendet.', SpeechOptionsObject);
     console.log('Tracking stopped');
   }
 
@@ -317,7 +331,7 @@ export default function App() {
 
   function playOnError(err: Error) {
     Speech.speak('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.', SpeechOptionsObject);
-    console.log("Error on speaking input: ", err);
+    console.log("Error on speaking input:", err);
   }
 
   function checkOffRoute(userLocation: UserLocationSpeed, stepLocation: LatLng, distanceToNextStep: number) {
@@ -411,7 +425,7 @@ export default function App() {
         {trafficLightData.map((data, index)=>(
 
             data.mapData?.laneSetConverted?.map((data, internalIndex)=>(
-                <Marker coordinate={{latitude:data.nodeListConverted[0].positionWGS84.lat,
+                <Marker key={internalIndex} coordinate={{latitude:data.nodeListConverted[0].positionWGS84.lat,
                   longitude: data.nodeListConverted[0].positionWGS84.lng}} >
                   <Image
                       style={[styles.markerImage,getLightColor(trafficLightData[index].spatData, 
@@ -536,9 +550,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'green',
   },
   red: {
-    backgroundColor:"red",
+    backgroundColor: 'red',
   },
   yellow: {
-    backgroundColor: "yellow",
+    backgroundColor: 'yellow',
   },
 });

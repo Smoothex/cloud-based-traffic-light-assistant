@@ -50,7 +50,7 @@
 
 1. Set the `LOCAL_IP_ADDRESS` variable in the `app/index.tsx` file. (See [Troubleshooting](#troubleshooting) for more info)
 
-1. Run `npm start` to start the app.
+1. For macOS or Linux run `npm start` to start the app. For Windows run `node ./server/server.js` and then in a new terminal `npx expo start`.
 
 1. On your device, open Expo Go and scan the QR code to connect to the development server. When the project starts loading, you see this in the terminal, see the gif below.
    

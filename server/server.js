@@ -10,7 +10,7 @@ app.options('*', cors())
 var corsOptions = {
     origin: '*',
     // methods:['GET','PUT','OPTION'], // critical
-    optionsSuccessStatus: 200 // 204 for somebrowser is not permitted
+    optionsSuccessStatus: 200 // 204 for some browsers is not permitted
 }
 
 

@@ -14,6 +14,7 @@ import {LocaleCodes} from "@/constants/LocaleCodes";
 import {Thresholds} from "@/constants/Thresholds";
 import {SpeakingThresholds, SpeechOptionsObject} from "@/constants/SpeechConstants";
 import {convertHtmlTextToPlainText, convertMinutesToHours} from "@/utilClasses/converterUtil";
+import { getLocalTimestamp } from "@/utilClasses/getMethodsUtil";
 import {calculateInitialRegion} from "@/utilClasses/calculationsUtil";
 import TraceRouteButton from "@/components/TraceRouteButton";
 import MyLocationButton from "@/components/MyLocationButton";
@@ -26,8 +27,11 @@ import {MapsResponse} from "@/interfaces/mapsResponse";
 import {SpatsResponse} from "@/interfaces/spatsResponse";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
-const auth = process.env.AUTH_TOKEN;
-const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights';
+const auth = process.env.TU_USER_AUTH_TOKEN;
+const TRAFFIC_LIGHT_TOOL_URL = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights';
+const SPAT_URL = TRAFFIC_LIGHT_TOOL_URL + '/spat?intersection=';
+const INTERSECTION_REGION_ID_STRING = '643@49030'; 
+
 export default function App() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [origin, setOrigin] = useState<LatLng | null>(null);
@@ -69,21 +73,19 @@ export default function App() {
       });
     })();
 
-    fetchMapData("643@49030").then(()=>{
-      getTrafficLightStatusUpdate(2000)
-
-      // fetchSpatData(url, "643@49030"); // for testing purpose
+    fetchMapData(INTERSECTION_REGION_ID_STRING).then(()=>{
+      getTrafficLightStatusUpdate(2000);
+      // fetchSpatData(url, INTERSECTION_ID_REGION_ID_STRING); // for testing purpose
     })
+
     return()=>{
-      clearInterval(intervalRef.current)
+      clearInterval(intervalRef.current);
     }
-
   }, []);
-
 
   async function getTrafficLightStatusUpdate(interval: number){
     intervalRef.current = setInterval(()=>{
-      fetchSpatData(url,"643@49030").then((data: any)=>{
+      fetchSpatData(TRAFFIC_LIGHT_TOOL_URL, INTERSECTION_REGION_ID_STRING).then((data: any)=>{
         // console.warn("traffic light data", trafficLightData)
       })
     }, interval)
@@ -106,20 +108,23 @@ export default function App() {
       mapRef.current?.animateToRegion(newRegion, 2000);
     }
   };
-  const fetchSpatData = async (url:string, intersectionId: string): Promise<SpatsResponse> => {
+
+  const fetchSpatData = async (url: string, intersectionId: string): Promise<SpatsResponse> => {
     try {
-      const response = await fetch(`${url}/spat?intersection=${intersectionId}`,{
-        headers: {
-          'Authorization': 'Basic a3J1dGFydGg0OlRVQmFuYTEyVFVCYW5hMTIh',
-          'Access-Control-Allow-Credentials': 'true',
-          'Access-Control-Allow-Origin': 'localhost:8081'
-        },
-      });
+      const response = await fetch(`${SPAT_URL}${intersectionId}`,
+        {
+          headers: {
+            'Authorization': 'Basic a3J1dGFydGg0OlRVQmFuYTEyVFVCYW5hMTIh',
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Origin': 'localhost:8081'
+          },
+        }
+      );
       const json = await response.json();
-      // console.log("traffic light status", json)
+      // console.log("traffic light status", json);
       const date = getLocalTimestamp();
-      setTrafficLightStatus(json)
-      await updateTrafficLightData(intersectionId,json,null)
+      setTrafficLightStatus(json);
+      await updateTrafficLightData(intersectionId, json, null);
       return json;
     } catch (error) {
       console.error('Error fetching traffic status data:', error);
@@ -127,11 +132,7 @@ export default function App() {
     }
   };
 
-  function getLocalTimestamp(){
-    return Date.now()
-  }
-
-  const fetchMapData = async ( intersectionId: string) => {
+  const fetchMapData = async (intersectionId: string) => {
     try {
       //localhost : 192.168.1.101 ~ through terminal `ifconfig en0` wifi needs to be on
 
@@ -139,8 +140,8 @@ export default function App() {
         //No more needed as already handled in server side
       });
       const json = await response.json();
-      // console.log("traffic light location",json);
-      setTrafficLightLocation(json)
+      // console.log("traffic light location", json);
+      setTrafficLightLocation(json);
       await updateTrafficLightData(intersectionId, null, json);
     } catch (error) {
       console.error('Error fetching traffic location data:', error);
@@ -251,7 +252,7 @@ export default function App() {
 
             const stepLocation: LatLng = {
               latitude: nextStep.end_location.lat,
-              longitude: nextStep.end_location.lng,
+              longitude: nextStep.end_location.lng
             };
             const distanceToNextStep: number = geolib.getDistance(userLocation, stepLocation);
 
@@ -361,7 +362,6 @@ export default function App() {
     }
   }
 
-
   async function playBeepSound(intensity: number) {
     const { sound } = await Audio.Sound.createAsync(
       require('../assets/sounds/beep.mp3')
@@ -382,18 +382,19 @@ export default function App() {
   function speakOffRouteMessage() {
     Speech.speak('Sie sind möglicherweise vom Weg abgekommen.', SpeechOptionsObject);
   }
-  function getLightColor(data: SpatsResponse, signalGroupId : number){
+
+  function getLightColor(data: SpatsResponse, signalGroupId : number) {
     console.log(data);
     const phase =data?.intersectionStates[0].movementStates[0].movementEvents[0].phaseState;
-    if(phase =="PROTECTED_MOVEMENT_ALLOWED"){
-      return styles.green
 
-    }else if(phase =="PROTECTED_CLEARANCE" || phase =="PRE_MOVEMENT"){
-      return styles.yellow
+    if (phase =="PROTECTED_MOVEMENT_ALLOWED") {
+      return styles.green;
 
-    }else{
-      // red light
-      return styles.red
+    } else if(phase =="PROTECTED_CLEARANCE" || phase =="PRE_MOVEMENT") {
+      return styles.yellow;
+
+    } else {
+      return styles.red;
     }
   }
 
@@ -416,16 +417,12 @@ export default function App() {
                 <Marker coordinate={{latitude:data.nodeListConverted[0].positionWGS84.lat,
                   longitude: data.nodeListConverted[0].positionWGS84.lng}} >
                   <Image
-                      style={[styles.markerImage,getLightColor(trafficLightData[index].spatData
-                      ,data.connectsToConverted[0].signalGroup)
-                      ]}
+                      style={[styles.markerImage,getLightColor(trafficLightData[index].spatData, 
+                        data.connectsToConverted[0].signalGroup)]}
                       source={require('../assets/images/trafficlight.png')}
                   />
                 </Marker>
-
             ))
-
-
         ))}
 
         {origin && destination && (
@@ -537,15 +534,14 @@ const styles = StyleSheet.create({
   markerImage: {
     width: 35,
     height: 35,
-  } ,
+  },
   green: {
     backgroundColor: 'green',
   },
   red: {
-    backgroundColor:"red"
+    backgroundColor:"red",
   },
   yellow: {
-    backgroundColor: "yellow"
+    backgroundColor: "yellow",
   },
-
 });

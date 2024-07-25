@@ -28,16 +28,16 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 ## How to build the app using EAS CLI
 
-1. In the terminal install eas-cli using `npm install -g eas-cli`
-1. Create an account for [Expo Dev](expo.dev)
-1. Log in with your credentials using `eas login`
+1. In the terminal install eas-cli using `npm install -g eas-cli`.
+1. Create an account for [Expo Dev](expo.dev).
+1. Log in with your credentials using `eas login`.
 1. Configure your project using `eas build:configure`, which creates an 
-`eas.json` file with configs
-1. Either build the `android` folder locally with  `npx expo prebuild` or skip this step because it happens automatically in the pipeline
-1. Add the environmental variables from your `.env` file in Secrets of your Expo project on the Expo dev page in order to build the app correctly
-1. Start a building pipeline with `eas build -p android --profile development`
-1. After the pipeline succeeds you can download the <em>.apk</em> on your file via the link from your terminal or you can find it in Builds on the Expo dev page
-1. After installing the app on your physical device you have to start a server with `npx expo start`
+`eas.json` file with configs.
+1. Either build the `android` folder locally with  `npx expo prebuild` or skip this step because it happens automatically in the pipeline.
+1. Add the environmental variables from your `.env` file in Secrets of your Expo project on the Expo dev page in order to build the app correctly.
+1. Start a building pipeline with `eas build -p android --profile development`.
+1. After the pipeline succeeds you can download the <em>.apk</em> on your file via the link from your terminal or you can find it in Builds on the Expo dev page.
+1. After installing the app on your physical device you have to start a server with `npx expo start`.
 
 ## How to run the app using Expo Go
 
@@ -45,7 +45,9 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 1. Install dependencies by running `npm install` in the terminal.
 
-1. Set the `EXPO_PUBLIC_GOOGLE_API_KEY` environment in a .env file. This project uses Google APIs, so you need to configure an API Key in your [Google Cloud](https://console.cloud.google.com) account.
+1. Set the `EXPO_PUBLIC_GOOGLE_API_KEY` environment variable in the `.env` file. This project uses Google APIs, so you need to configure an API Key in your [Google Cloud](https://console.cloud.google.com) account.
+
+1. Set the `TU_USER_AUTH_TOKEN` environment variable in the `.env` file. This is the combination of `username:password` converted to base64 code. You could use this ([online converter](https://base64.guru/converter)) for this purpose.
 
 1. Run `npm start` to start the app.
 
@@ -63,19 +65,19 @@ Unfortunately, Expo secrets can only be accessed by EAS cloud builds, and the lo
 
 
 ## Express server
-To start the Express server, use the npm start command. This command runs the application in the Metro Builder. By default, the server listens on localhost:3000, so ensure that no other application is using this port. For further configuration, have a look at the[ official express docs](https://expressjs.com/en/5x/api.html)
+To start the Express server, use the npm start command. This command runs the application in the Metro Builder. By default, the server listens on `localhost:3000`, so ensure that no other application is using this port. For further configuration, have a look at the [official express docs](https://expressjs.com/en/5x/api.html).
 
-To ensure accessibility by the server, place the files in the './server/data/*' directory. These files, containing Maps data, should follow the naming convention MAPS_<identifier>.json (e.g., MAPS_643@49030.json) and must be a json files.
+To ensure accessibility by the server, place the files in the `./server/data/*` directory. These files, containing Maps data, should follow the naming convention `MAPS_<identifier>.json` (e.g., MAPS_643@49030.json) and must be of type JSON.
 
 
 ### Troubleshooting
 
 If the application doesn't have access to our local express server , first check if the wifi is switched on. 
 
-Next for mac or linix users, execute `ifconfig en0` on terminal , which gives you the IP address assigned to the interface. This inet address '192.168.1.101' needs to be copied to the ./app/index.tsx in line 138.
+Next for macOS or Linux users, execute `ifconfig en0` on terminal , which gives you the IP address assigned to the interface. This inet address `192.168.1.101` needs to be copied to the `./app/index.tsx` in line 138.
 
 #### TODO
--[] add this inet address in separate config file
+- add this inet address in separate config file
 
 ![Screenshot 2024-07-24 at 09 05 48](https://github.com/user-attachments/assets/2ee6fa58-2999-4bca-9f8d-ab1b1a077508)
 

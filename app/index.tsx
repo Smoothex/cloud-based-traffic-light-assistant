@@ -14,7 +14,7 @@ import {LocaleCodes} from "@/constants/LocaleCodes";
 import {Thresholds} from "@/constants/Thresholds";
 import {SpeakingThresholds, SpeechOptionsObject} from "@/constants/SpeechConstants";
 import {convertHtmlTextToPlainText, convertMinutesToHours} from "@/utilClasses/converterUtil";
-import {getLocalTimestamp} from "@/utilClasses/getMethodsUtil";
+import {getLocalTimestamp, getLightBackgroundColor, getWarningMessageByTrafficLightPhase} from "@/utilClasses/getMethodsUtil";
 import {calculateInitialRegion} from "@/utilClasses/calculationsUtil";
 import TraceRouteButton from "@/components/TraceRouteButton";
 import MyLocationButton from "@/components/MyLocationButton";
@@ -75,20 +75,20 @@ export default function App() {
       });
     })();
 
-    fetchMapData(INTERSECTION_REGION_ID_STRING).then(()=>{
-      getTrafficLightStatusUpdate(2000);
-      // fetchSpatData(url, INTERSECTION_ID_REGION_ID_STRING); // for testing purpose
+    fetchMapData(INTERSECTION_REGION_ID_STRING).then(() => {
+      getTrafficLightStatusUpdate(Thresholds.TRAFFIC_LIGHT_FETCH_DATA_INTERVAL);
+      //fetchSpatData(url, INTERSECTION_ID_REGION_ID_STRING); // for testing purpose
     })
 
-    return()=>{
+    return() => {
       clearInterval(intervalRef.current);
     }
   }, []);
 
-  async function getTrafficLightStatusUpdate(interval: number){
-    intervalRef.current = setInterval(()=>{
-      fetchSpatData(INTERSECTION_REGION_ID_STRING).then((fetchedTrafficLightData: any)=>{
-        // console.warn("traffic light data", fetchedTrafficLightData)  //TODO do we need it?
+  async function getTrafficLightStatusUpdate(interval: number) {
+    intervalRef.current = setInterval(() => {
+      fetchSpatData(INTERSECTION_REGION_ID_STRING).then((fetchedTrafficLightData: any) => {
+        //console.log("traffic light data", fetchedTrafficLightData)  //TODO do we need it?
       })
     }, interval)
   }
@@ -128,7 +128,7 @@ export default function App() {
       );
 
       const json = await response.json();
-      const date = getLocalTimestamp(); //TODO do we need it?
+      //console.log('Fetch Spat Data:', getLocalTimestamp()); // for testing purpose
 
       setTrafficLightStatus(json);
       await updateTrafficLightData(intersectionId, json, null);
@@ -151,6 +151,8 @@ export default function App() {
       });
 
       const json = await response.json();
+      //console.log('Fetch Map Data:', getLocalTimestamp()); // for testing purpose
+
       setTrafficLightLocation(json);
       await updateTrafficLightData(intersectionId, null, json);
     } catch (error) {
@@ -258,7 +260,7 @@ export default function App() {
 
           if (!!steps.length) {
             const nextStep: SingleStep = steps[0]; // Get the next step to display
-            console.log("Next step:", nextStep);
+            //console.log("Next step:", nextStep); // for testing purposes
 
             const stepLocation: LatLng = {
               latitude: nextStep.end_location.lat,
@@ -280,6 +282,7 @@ export default function App() {
             }
 
             checkOffRoute(userLocation, stepLocation, distanceToNextStep);
+            checkNearTrafficLight(userLocation);
           }
 
           const headingWatcher = await Location.watchHeadingAsync((headingData) => {
@@ -331,7 +334,7 @@ export default function App() {
 
   function playOnError(err: Error) {
     Speech.speak('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.', SpeechOptionsObject);
-    console.log("Error on speaking input:", err);
+    console.log('Error on speaking input:', err);
   }
 
   function checkOffRoute(userLocation: UserLocationSpeed, stepLocation: LatLng, distanceToNextStep: number) {
@@ -373,6 +376,16 @@ export default function App() {
     }
   }
 
+  function checkNearTrafficLight(userLocation: UserLocationSpeed) {
+    const distanceToTrafficLight: number = geolib.getDistance(userLocation, trafficLightLocation.centerPoint.positionWGS84);
+
+    if (distanceToTrafficLight <= Thresholds.THRESHOLD_DISTANCE_TO_TRAFFIC_LIGHT) {
+      let trafficLightPhase = trafficLightStatus.intersectionStates[0].movementStates[0].movementEvents[0].phaseState;
+      playBeepSound(3); // play sound to get user's attention
+      Speech.speak(getWarningMessageByTrafficLightPhase(trafficLightPhase, distanceToTrafficLight), SpeechOptionsObject); // warn the user about the traffic light
+    }
+  }
+
   async function playBeepSound(intensity: number) {
     const { sound } = await Audio.Sound.createAsync(
       require('../assets/sounds/beep.mp3')
@@ -394,21 +407,6 @@ export default function App() {
     Speech.speak('Sie sind möglicherweise vom Weg abgekommen.', SpeechOptionsObject);
   }
 
-  function getLightColor(data: SpatsResponse, signalGroupId : number) {
-    console.log(data);
-    const phase = data?.intersectionStates[0].movementStates[0].movementEvents[0].phaseState;
-
-    if (phase == "PROTECTED_MOVEMENT_ALLOWED") {
-      return styles.green;
-
-    } else if(phase == "PROTECTED_CLEARANCE" || phase == "PRE_MOVEMENT") {
-      return styles.yellow;
-
-    } else {
-      return styles.red;
-    }
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <MapView
@@ -422,13 +420,12 @@ export default function App() {
         {origin && <Marker coordinate={origin} />}
         {destination && <Marker coordinate={destination} />}
 
-        {trafficLightData.map((data, index)=>(
-
-            data.mapData?.laneSetConverted?.map((data, internalIndex)=>(
+        {trafficLightData.map((data, index) => (
+            data.mapData?.laneSetConverted?.map((data, internalIndex) => (
                 <Marker key={internalIndex} coordinate={{latitude:data.nodeListConverted[0].positionWGS84.lat,
                   longitude: data.nodeListConverted[0].positionWGS84.lng}} >
                   <Image
-                      style={[styles.markerImage,getLightColor(trafficLightData[index].spatData, 
+                      style={[styles.markerImage, getLightBackgroundColor(trafficLightData[index].spatData, 
                         data.connectsToConverted[0].signalGroup)]}
                       source={require('../assets/images/trafficlight.png')}
                   />
@@ -455,7 +452,8 @@ export default function App() {
           ref={autoCompleteRef}
           placeholder='Richtung eingeben'
           fetchDetails={true}
-          enableHighAccuracyLocation
+          enableHighAccuracyLocation={true}
+          debounce={300}
           keepResultsAfterBlur={false}
           minLength={3}
           onPress={(data, details = null) => onPressAddress(details, 'destination')}
@@ -545,14 +543,5 @@ const styles = StyleSheet.create({
   markerImage: {
     width: 35,
     height: 35,
-  },
-  green: {
-    backgroundColor: 'green',
-  },
-  red: {
-    backgroundColor: 'red',
-  },
-  yellow: {
-    backgroundColor: 'yellow',
   },
 });

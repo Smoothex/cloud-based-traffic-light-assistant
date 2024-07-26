@@ -4,6 +4,7 @@
 
 - npm version: ~10.8.2
 - Node.js version: ~21.7.3
+- Android v13 or greater
 
 # Changes in libraries
 

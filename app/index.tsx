@@ -14,6 +14,7 @@ import {LocaleCodes} from "@/constants/LocaleCodes";
 import {Thresholds} from "@/constants/Thresholds";
 import {SpeakingThresholds, SpeechOptionsObject} from "@/constants/SpeechConstants";
 import {convertHtmlTextToPlainText, convertMinutesToHours} from "@/utilClasses/converterUtil";
+import {getLocalTimestamp} from "@/utilClasses/getMethodsUtil";
 import {calculateInitialRegion} from "@/utilClasses/calculationsUtil";
 import TraceRouteButton from "@/components/TraceRouteButton";
 import MyLocationButton from "@/components/MyLocationButton";
@@ -23,11 +24,16 @@ import * as geolib from 'geolib';
 import * as Speech from 'expo-speech';
 import {Audio} from 'expo-av';
 import {MapsResponse} from "@/interfaces/mapsResponse";
-import {SpatsResponse} from "@/interfaces/spatsResponse";
+import {SpatsResponse, TrafficLightData} from "@/interfaces/spatsResponse";
 
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
-const auth = process.env.AUTH_TOKEN;
-const url = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights';
+const TU_USER_AUTH_TOKEN = process.env.EXPO_PUBLIC_TU_USER_AUTH_TOKEN;
+const TRAFFIC_LIGHT_TOOL_URL = 'https://werkzeug.dcaiti.tu-berlin.de/0432l770/trafficlights';
+const SPAT_URL = TRAFFIC_LIGHT_TOOL_URL + '/spat?intersection=';
+const INTERSECTION_REGION_ID_STRING = '643@49030';
+const LOCAL_IP_ADDRESS = '192.168.0.104'; // Read the documentation to find how to get your local IP address
+const PROXY_SERVER_PORT = '3000';
+
 export default function App() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [origin, setOrigin] = useState<LatLng | null>(null);
@@ -46,16 +52,16 @@ export default function App() {
   const autoCompleteRef = useRef<GooglePlacesAutocompleteRef>(null);
   const [trafficLightLocation, setTrafficLightLocation] = useState<MapsResponse | null>(null);
   const [trafficLightStatus, setTrafficLightStatus] = useState<SpatsResponse | null>(null);
-  const [trafficLightData, setTrafficLightData] = useState<Array<{
-    intersectionId: string | null,
-    spatData: SpatsResponse | null,
-    mapData: MapsResponse | null
-  }>>([]);
+  const [trafficLightData, setTrafficLightData] = useState<TrafficLightData[]>([]);
   const intervalRef = useRef(null);
   let lastDistanceWhenInstructionsRead = 0;
 
   useEffect(() => {
     (async () => {
+      if (GOOGLE_API_KEY.length === 0) {
+        console.warn('Your GOOGLE_API_KEY is empty! Please check your .env file!');
+      }
+
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         return;
@@ -69,22 +75,20 @@ export default function App() {
       });
     })();
 
-    fetchMapData("643@49030").then(()=>{
-      getTrafficLightStatusUpdate(2000)
-
-      // fetchSpatData(url, "643@49030"); // for testing purpose
+    fetchMapData(INTERSECTION_REGION_ID_STRING).then(()=>{
+      getTrafficLightStatusUpdate(2000);
+      // fetchSpatData(url, INTERSECTION_ID_REGION_ID_STRING); // for testing purpose
     })
+
     return()=>{
-      clearInterval(intervalRef.current)
+      clearInterval(intervalRef.current);
     }
-
   }, []);
-
 
   async function getTrafficLightStatusUpdate(interval: number){
     intervalRef.current = setInterval(()=>{
-      fetchSpatData(url,"643@49030").then((data: any)=>{
-        // console.warn("traffic light data", trafficLightData)
+      fetchSpatData(INTERSECTION_REGION_ID_STRING).then((fetchedTrafficLightData: any)=>{
+        // console.warn("traffic light data", fetchedTrafficLightData)  //TODO do we need it?
       })
     }, interval)
   }
@@ -106,20 +110,28 @@ export default function App() {
       mapRef.current?.animateToRegion(newRegion, 2000);
     }
   };
-  const fetchSpatData = async (url:string, intersectionId: string): Promise<SpatsResponse> => {
+
+  const fetchSpatData = async (intersectionId: string): Promise<SpatsResponse> => {
     try {
-      const response = await fetch(`${url}/spat?intersection=${intersectionId}`,{
-        headers: {
-          'Authorization': 'Basic a3J1dGFydGg0OlRVQmFuYTEyVFVCYW5hMTIh',
-          'Access-Control-Allow-Credentials': 'true',
-          'Access-Control-Allow-Origin': 'localhost:8081'
-        },
-      });
+      if (TU_USER_AUTH_TOKEN.length === 0) {
+        console.warn('Your TU_USER_AUTH_TOKEN is empty! Please check your .env file!');
+      }
+
+      const response = await fetch(`${SPAT_URL}${intersectionId}`,
+        {
+          headers: {
+            'Authorization': `Basic ${TU_USER_AUTH_TOKEN}`,
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Origin': 'localhost:8081'
+          },
+        }
+      );
+
       const json = await response.json();
-      // console.log("traffic light status", json)
-      const date = getLocalTimestamp();
-      setTrafficLightStatus(json)
-      await updateTrafficLightData(intersectionId,json,null)
+      const date = getLocalTimestamp(); //TODO do we need it?
+
+      setTrafficLightStatus(json);
+      await updateTrafficLightData(intersectionId, json, null);
       return json;
     } catch (error) {
       console.error('Error fetching traffic status data:', error);
@@ -127,25 +139,25 @@ export default function App() {
     }
   };
 
-  function getLocalTimestamp(){
-    return Date.now()
-  }
-
-  const fetchMapData = async ( intersectionId: string) => {
+  const fetchMapData = async (intersectionId: string) => {
     try {
       //localhost : 192.168.1.101 ~ through terminal `ifconfig en0` wifi needs to be on
+      if (LOCAL_IP_ADDRESS.includes('X') || LOCAL_IP_ADDRESS.length === 0) {
+        console.warn('Your LOCAL_IP_ADDRESS variable is incorrect or empty! See documentation for how to get it!');
+      }
 
-      const response : any = await fetch(`http://192.168.1.101:3000/trafficlights/maps/${intersectionId}`,{
+      const response : any = await fetch(`http://${LOCAL_IP_ADDRESS}:${PROXY_SERVER_PORT}/trafficlights/maps/${intersectionId}`, {
         //No more needed as already handled in server side
       });
+
       const json = await response.json();
-      // console.log("traffic light location",json);
-      setTrafficLightLocation(json)
+      setTrafficLightLocation(json);
       await updateTrafficLightData(intersectionId, null, json);
     } catch (error) {
       console.error('Error fetching traffic location data:', error);
     }
   };
+
   const updateTrafficLightData = async (intersectionId: string, spatData: SpatsResponse | null, mapData: any | null) => {
     const idArray = intersectionId.split(',').map(id => id.trim());
 
@@ -171,7 +183,6 @@ export default function App() {
       return updatedData;
     });
   }
-
 
   /**
    * Updates the origin or destination location based on the given details and type.
@@ -226,6 +237,7 @@ export default function App() {
       return;
     }
 
+    Speech.speak('Navigation wurde gestartet.', SpeechOptionsObject);
     moveToLocation(origin)
     setIsNavigationActive(true);
 
@@ -245,13 +257,12 @@ export default function App() {
           moveToLocation(userLocation);
 
           if (!!steps.length) {
-            console.log("All steps: ", steps);
             const nextStep: SingleStep = steps[0]; // Get the next step to display
-            console.log("Next step: ", nextStep);
+            console.log("Next step:", nextStep);
 
             const stepLocation: LatLng = {
               latitude: nextStep.end_location.lat,
-              longitude: nextStep.end_location.lng,
+              longitude: nextStep.end_location.lng
             };
             const distanceToNextStep: number = geolib.getDistance(userLocation, stepLocation);
 
@@ -283,7 +294,7 @@ export default function App() {
         });
       console.log('Tracking started');
     } catch (error) {
-      console.error('Error on starting navigation: ', error);
+      console.error('Error on starting navigation:', error);
     }
   };
 
@@ -304,6 +315,7 @@ export default function App() {
     }
 
     Speech.stop();
+    Speech.speak('Navigation wurde beendet.', SpeechOptionsObject);
     console.log('Tracking stopped');
   }
 
@@ -319,7 +331,7 @@ export default function App() {
 
   function playOnError(err: Error) {
     Speech.speak('Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.', SpeechOptionsObject);
-    console.log("Error on speaking input: ", err);
+    console.log("Error on speaking input:", err);
   }
 
   function checkOffRoute(userLocation: UserLocationSpeed, stepLocation: LatLng, distanceToNextStep: number) {
@@ -361,7 +373,6 @@ export default function App() {
     }
   }
 
-
   async function playBeepSound(intensity: number) {
     const { sound } = await Audio.Sound.createAsync(
       require('../assets/sounds/beep.mp3')
@@ -382,18 +393,19 @@ export default function App() {
   function speakOffRouteMessage() {
     Speech.speak('Sie sind möglicherweise vom Weg abgekommen.', SpeechOptionsObject);
   }
-  function getLightColor(data: SpatsResponse, signalGroupId : number){
+
+  function getLightColor(data: SpatsResponse, signalGroupId : number) {
     console.log(data);
-    const phase =data?.intersectionStates[0].movementStates[0].movementEvents[0].phaseState;
-    if(phase =="PROTECTED_MOVEMENT_ALLOWED"){
-      return styles.green
+    const phase = data?.intersectionStates[0].movementStates[0].movementEvents[0].phaseState;
 
-    }else if(phase =="PROTECTED_CLEARANCE" || phase =="PRE_MOVEMENT"){
-      return styles.yellow
+    if (phase == "PROTECTED_MOVEMENT_ALLOWED") {
+      return styles.green;
 
-    }else{
-      // red light
-      return styles.red
+    } else if(phase == "PROTECTED_CLEARANCE" || phase == "PRE_MOVEMENT") {
+      return styles.yellow;
+
+    } else {
+      return styles.red;
     }
   }
 
@@ -413,19 +425,15 @@ export default function App() {
         {trafficLightData.map((data, index)=>(
 
             data.mapData?.laneSetConverted?.map((data, internalIndex)=>(
-                <Marker coordinate={{latitude:data.nodeListConverted[0].positionWGS84.lat,
+                <Marker key={internalIndex} coordinate={{latitude:data.nodeListConverted[0].positionWGS84.lat,
                   longitude: data.nodeListConverted[0].positionWGS84.lng}} >
                   <Image
-                      style={[styles.markerImage,getLightColor(trafficLightData[index].spatData
-                      ,data.connectsToConverted[0].signalGroup)
-                      ]}
+                      style={[styles.markerImage,getLightColor(trafficLightData[index].spatData, 
+                        data.connectsToConverted[0].signalGroup)]}
                       source={require('../assets/images/trafficlight.png')}
                   />
                 </Marker>
-
             ))
-
-
         ))}
 
         {origin && destination && (
@@ -445,7 +453,7 @@ export default function App() {
       <View style={styles.searchContainer}>
         <GooglePlacesAutocomplete
           ref={autoCompleteRef}
-          placeholder='Search for your destination'
+          placeholder='Richtung eingeben'
           fetchDetails={true}
           enableHighAccuracyLocation
           keepResultsAfterBlur={false}
@@ -537,15 +545,14 @@ const styles = StyleSheet.create({
   markerImage: {
     width: 35,
     height: 35,
-  } ,
+  },
   green: {
     backgroundColor: 'green',
   },
   red: {
-    backgroundColor:"red"
+    backgroundColor: 'red',
   },
   yellow: {
-    backgroundColor: "yellow"
+    backgroundColor: 'yellow',
   },
-
 });

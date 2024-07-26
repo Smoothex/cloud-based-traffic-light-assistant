@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "proxy": "http://localhost:3000",
   "scripts": {
-    "start": "node ./server/server.js & expo start ",
+    "start": "node ./server/server.js & expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",

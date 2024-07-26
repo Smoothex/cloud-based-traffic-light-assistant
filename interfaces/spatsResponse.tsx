@@ -1,3 +1,11 @@
+import { MapsResponse } from "./mapsResponse"
+
+export interface TrafficLightData {
+  intersectionId: string | null,
+  spatData: SpatsResponse | null,
+  mapData: MapsResponse | null
+}
+
 export interface SpatsResponse {
   msgID: number
   msgSubID: number

@@ -7,7 +7,7 @@ type TraceRouteButtonProps = {
 export default function TraceRouteButton({ traceRoute }: TraceRouteButtonProps) {
     return (
         <TouchableOpacity style={styles.traceRouteButton} onPress={traceRoute}>
-            <Text style={styles.buttonText}>Trace Route</Text>
+            <Text style={styles.buttonText}>Route verfolgen</Text>
         </TouchableOpacity>
     );
 }

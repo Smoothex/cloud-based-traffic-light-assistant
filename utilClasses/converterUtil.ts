@@ -4,6 +4,11 @@ export function convertMinutesToHours(timeInMinutes: number): string {
     } else {
         let hours = Math.floor(timeInMinutes / 60);
         let minutes = timeInMinutes % 60;
+
+        if (hours === 1) {
+            return `${hours} hour ${minutes} min`
+        }
+
         return `${hours} hours ${minutes} min`
     }
 }

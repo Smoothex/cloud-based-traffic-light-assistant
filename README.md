@@ -1,7 +1,6 @@
 [![Android App APK Build](https://github.com/Smoothex/cloud-based-traffic-light-assistant/actions/workflows/eas-android-apk-build.yaml/badge.svg?branch=master)](https://github.com/Smoothex/cloud-based-traffic-light-assistant/actions/workflows/eas-android-apk-build.yaml)
 
-# Important
-[!CAUTION] 
+>[!CAUTION] 
 > Please do not rely fully on this app for navigation of visually impaired people, because it is not extensively tested and might be dangerous.
 
 # Prerequisites
